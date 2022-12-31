@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { trpc } from "../utils/trpc";
 
 import "../styles/globals.css";
+import Header from "../components/header";
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
@@ -12,7 +13,14 @@ const MyApp: AppType<{ session: Session | null }> = ({
 }) => {
   return (
     <SessionProvider session={session}>
-      <Component {...pageProps} />
+      <div className="flex flex-col h-screen">
+        <Header />
+        <div className="grow w-screen">
+          <Component {...pageProps} />
+        </div>
+
+      </div>
+
     </SessionProvider>
   );
 };

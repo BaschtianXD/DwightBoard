@@ -64,3 +64,37 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model Sound {
+  soundid String   @id
+  guildid String
+  name    String
+  hidden  Boolean
+  deleted Boolean  @default(false)
+  plays   Play[]
+  entrees Entree[]
+}
+
+model Play {
+  userid  String
+  soundid String
+  time    DateTime
+  sound   Sound    @relation(fields: [soundid], references: [soundid], onDelete: Cascade)
+
+  @@id([soundid, time])
+}
+
+model Entree {
+  guildid String
+  userid  String
+  soundid String
+
+  sound Sound @relation(fields: [soundid], references: [soundid], onDelete: Restrict)
+
+  @@id([guildid, userid])
+}
+
+model Limit {
+  guildid String @id
+  limit   Int
+}

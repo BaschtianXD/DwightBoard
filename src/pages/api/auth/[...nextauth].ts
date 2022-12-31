@@ -5,11 +5,16 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 
 import { env } from "../../../env/server.mjs";
 import { prisma } from "../../../server/db/client";
+import { JWT } from "next-auth/jwt/types.js";
 
 export const authOptions: NextAuthOptions = {
   // Include user.id on session
   callbacks: {
-    session({ session, user }) {
+    jwt({token}) {
+      console.log("JWT CALLBACK")
+      return token
+    },
+    session({ session, user, token }) {
       if (session.user) {
         session.user.id = user.id;
       }
@@ -22,6 +27,7 @@ export const authOptions: NextAuthOptions = {
     DiscordProvider({
       clientId: env.DISCORD_CLIENT_ID,
       clientSecret: env.DISCORD_CLIENT_SECRET,
+      authorization: "https://discord.com/api/oauth2/authorize?scope=identify+email+guilds", // we also want to see the users guilds
     }),
     // ...add more providers here
   ],
