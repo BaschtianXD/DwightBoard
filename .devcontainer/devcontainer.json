@@ -9,7 +9,7 @@
 		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {},
 		"ghcr.io/devcontainers-contrib/features/prisma:2": {},
 		"ghcr.io/warrenbuckley/codespace-features/sqlite:1": {}
-	}
+	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
@@ -18,7 +18,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "yarn install",
+	"postCreateCommand": "apt-get update && apt-get install ffmpeg"
 
 	// Configure tool-specific properties.
 	// "customizations": {},
