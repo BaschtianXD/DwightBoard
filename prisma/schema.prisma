@@ -55,6 +55,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  sounds        Sound[]
 }
 
 model VerificationToken {
@@ -66,13 +67,16 @@ model VerificationToken {
 }
 
 model Sound {
-  soundid String   @id
-  guildid String
-  name    String
-  hidden  Boolean
-  deleted Boolean  @default(false)
-  plays   Play[]
-  entrees Entree[]
+  soundid     String   @id @default(uuid())
+  guildid     String
+  name        String
+  hidden      Boolean
+  deleted     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  createdById String?
+  plays       Play[]
+  entrees     Entree[]
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
 }
 
 model Play {
@@ -89,7 +93,7 @@ model Entree {
   userid  String
   soundid String
 
-  sound Sound @relation(fields: [soundid], references: [soundid], onDelete: Restrict)
+  sound Sound @relation(fields: [soundid], references: [soundid], onDelete: Cascade)
 
   @@id([guildid, userid])
 }

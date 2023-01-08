@@ -12,10 +12,10 @@ const GuildConfigPage: NextPage = () => {
         <div>
             <p>GuildConfigPage: {guildid}</p>
             {guild.data &&
-                <div>
+                <div className="flex flex-col">
                     <p>{guild.data.guild.name}</p>
                     <Link href={"/config/" + guildid + "/sounds"}>Sounds: {guild.data.soundCount}</Link>
-                    <p>Entrees: {guild.data.entreeCount}</p>
+                    <Link href={"/config/" + guildid + "/announcements"}>Announcements: {guild.data.entreeCount}</Link>
                 </div>
             }
         </div>

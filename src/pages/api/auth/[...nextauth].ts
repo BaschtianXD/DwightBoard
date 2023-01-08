@@ -10,13 +10,20 @@ import { JWT } from "next-auth/jwt/types.js";
 export const authOptions: NextAuthOptions = {
   // Include user.id on session
   callbacks: {
-    jwt({token}) {
+    jwt({ token }) {
       console.log("JWT CALLBACK")
       return token
     },
-    session({ session, user, token }) {
+    async session({ session, user, token }) {
       if (session.user) {
         session.user.id = user.id;
+        const discordAccount = await prisma.account.findFirstOrThrow({
+          where: {
+            provider: "discord",
+            userId: user.id
+          }
+        })
+        session.user.discordId = discordAccount.providerAccountId
       }
       return session;
     },

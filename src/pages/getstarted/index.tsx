@@ -5,7 +5,7 @@ import type { FC } from "react";
 
 const GetStartedPage: NextPage = () => {
     return (
-        <div className="bg-white dark:bg-slate-900 min-h-full flex flex-col items-center justify-center gap-4 p-2">
+        <div className="min-h-full flex flex-col items-center justify-center gap-4 p-2">
             <Head>
                 <title>Dwight - Getting Started</title>
             </Head>

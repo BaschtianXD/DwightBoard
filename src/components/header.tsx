@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { signIn, signOut, useSession } from "next-auth/react";
-import { FC, ReactNode, useState } from "react";
+import type { FC, ReactNode } from "react";
+import { useState } from "react";
 
 const Header = () => {
     const { data: sessionData } = useSession();
@@ -32,7 +33,7 @@ const Header = () => {
                         <ul className="flex flex-col mt-4 font-medium lg:flex-row lg:space-x-8 lg:mt-0">
                             <HeaderItem href="/">Home</HeaderItem>
                             <HeaderItem href="/getstarted">Get Started</HeaderItem>
-                            <HeaderItem href="/config">Config</HeaderItem>
+                            <HeaderItem href="/config">Configuration</HeaderItem>
                         </ul>
                     </div>
                 </div>
