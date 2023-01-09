@@ -45,11 +45,21 @@ export const discordRouter = router({
         })
         const botGuilds = MeGuildResponseBody.parse(await botResponse.json())
 
-        const intersection = botGuilds.filter(botGuild => ownedGuilds.some(userGuild => botGuild.id === userGuild.id))
+        const intersection = ownedGuilds.filter(botGuild => botGuilds.some(userGuild => botGuild.id === userGuild.id))
 
-        return intersection
+        const guildMap = new Map<string, { id: string, name: string, icon: string | null }>()
+        intersection.reduce((acc, value) => {
+            return acc.set(value.id, value)
+        }, guildMap)
+
+        return {
+            guilds: guildMap
+        }
     }),
-    guild: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async (query) => {
+    getGuild: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async (query) => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+        }
 
         const botToken = env.DISCORD_BOT_AUTH_TOKEN
 
@@ -67,22 +77,42 @@ export const discordRouter = router({
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
         }
 
+        return {
+            guild: guildParseResult.data
+        }
+    }),
+
+    getCountsForGuild: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+        }
+
         const soundCount = await query.ctx.prisma.sound.count({
             where: {
-                guildid: guildParseResult.data.id
+                guildid: query.input.guildid,
+                deleted: false
             }
         })
 
         const entreeCount = await query.ctx.prisma.entree.count({
             where: {
-                guildid: guildParseResult.data.id
+                guildid: query.input.guildid
+            }
+        })
+
+        const playCount = await query.ctx.prisma.play.count({
+            where: {
+                sound: {
+                    guildid: query.input.guildid,
+                    deleted: false
+                }
             }
         })
 
         return {
             soundCount,
             entreeCount,
-            guild: guildParseResult.data
+            playCount
         }
     }),
 

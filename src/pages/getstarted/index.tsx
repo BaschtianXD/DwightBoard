@@ -2,10 +2,11 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import type { FC } from "react";
+import { pageClasses } from "../../components/shared";
 
 const GetStartedPage: NextPage = () => {
     return (
-        <div className="min-h-full flex flex-col items-center justify-center gap-4 p-2">
+        <div className={pageClasses}>
             <Head>
                 <title>Dwight - Getting Started</title>
             </Head>

@@ -9,8 +9,10 @@ import { useReducer } from "react";
 import { PositiveButton, DefaultButton, TextInput, NegativeButton, LoadingIcon } from "../../../../components/form";
 import type { AppRouter } from "../../../../server/trpc/router/_app";
 import { trpc } from "../../../../utils/trpc";
-import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
+import { ChevronDownIcon, ChevronRightIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
 import { PencilSquareIcon, StopIcon, TrashIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { pageClasses } from "../../../../components/shared";
 
 type Sound = inferRouterOutputs<AppRouter>["discord"]["getSounds"]["sounds"][number]
 
@@ -86,6 +88,8 @@ const AnnouncementPage: NextPage = () => {
     const [showAnnouncementDialog, setShowAnnouncementDialog] = useState("none" as AnnouncementDialogType)
     const soundsQuery = trpc.discord.getSounds.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 2000 })
 
+    const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
+
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
@@ -95,7 +99,15 @@ const AnnouncementPage: NextPage = () => {
     selectValues?.unshift(<option key="0" disabled>Choose a sound ...</option>)
 
     return (
-        <div className="w-full h-full flex flex-col p-4 mx-auto">
+        <div className={pageClasses}>
+
+            {/* NAV HEADER */}
+            <div className="flex gap-2 items-center m-2">
+                <ChevronRightIcon className="h-4" />
+                <Link href="/config">Config</Link>
+                <ChevronRightIcon className="h-4" />
+                <Link href={"/config/" + guildid}>Server: {guildQuery.data?.guild.name}</Link>
+            </div>
 
             {/* PAGE HEADER */}
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
