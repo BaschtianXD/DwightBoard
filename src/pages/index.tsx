@@ -25,25 +25,23 @@ const Home: NextPage = () => {
             >
               <h3 className="text-2xl font-bold">Get Started →</h3>
               <div className="text-lg">
-                Add Dwight to one of your server and add sounds.
+                Step by step guide to use Dwight.
               </div>
             </Link>
             <Link
               className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-              href="/statistics"
+              href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands"
               target="_blank"
             >
               <h3 className="text-2xl font-bold">Add Dwight to your server</h3>
               <div className="text-lg">
-                You already know the steps and just want to add Dwight to a server. Here you go.
+                You already know the steps and just want to add Dwight to a server? Here you go.
               </div>
             </Link>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello.data ? hello.data.greeting : "Loading tRPC query..."}
-            </p>
-          </div>
+        </div>
+        <div>
+          <p>Made with love by <Link className="font-bold" href="https://github.com/BaschtianXD" target="_blank" rel="noreferrer">@BaschtianXD</Link></p>
         </div>
       </main>
     </>

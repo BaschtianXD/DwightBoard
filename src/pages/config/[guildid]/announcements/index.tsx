@@ -9,15 +9,20 @@ import { useReducer } from "react";
 import { PositiveButton, DefaultButton, TextInput, NegativeButton, LoadingIcon } from "../../../../components/form";
 import type { AppRouter } from "../../../../server/trpc/router/_app";
 import { trpc } from "../../../../utils/trpc";
-import { ChevronDownIcon, ChevronRightIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
-import { PencilSquareIcon, StopIcon, TrashIcon } from "@heroicons/react/24/outline";
-import Link from "next/link";
+import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
+import { PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { pageClasses } from "../../../../components/shared";
+import NavHeader from "../../../../components/NavHeader";
+import { signIn, useSession } from "next-auth/react";
+import Image from "next/image";
+import { RubikFont } from "../../../../common";
 
-type Sound = inferRouterOutputs<AppRouter>["discord"]["getSounds"]["sounds"][number]
+type RouterOutput = inferRouterOutputs<AppRouter>
+type Sound = RouterOutput["discord"]["getSounds"]["sounds"][number]
+type User = RouterOutput["discord"]["getGuildMembers"][number]
 
 interface Announcement {
-    userid: string,
+    user: User | null,
     sound: Sound | null
 }
 
@@ -27,13 +32,13 @@ type AnnouncementReducerActionCreate = {
 
 type AnnouncementReducerActionEdit = {
     type: "edit"
-    userid: string,
+    user: User,
     sound: Sound
 }
 
-type AnnouncementReducerActionSetUserid = {
-    type: "setUserid",
-    userid: string
+type AnnouncementReducerActionSetUser = {
+    type: "setUser",
+    user: User
 }
 
 type AnnouncementReducerActionSetSound = {
@@ -45,9 +50,9 @@ type AnnouncementReducerActionClear = {
     type: "clear"
 }
 
-type AnnouncementDialogType = "none" | "create" | "edit"
+type AnnouncementDialogType = "create" | "edit"
 
-type newAnnouncementReducerAction = AnnouncementReducerActionCreate | AnnouncementReducerActionEdit | AnnouncementReducerActionSetUserid | AnnouncementReducerActionSetSound | AnnouncementReducerActionClear
+type newAnnouncementReducerAction = AnnouncementReducerActionCreate | AnnouncementReducerActionEdit | AnnouncementReducerActionSetUser | AnnouncementReducerActionSetSound | AnnouncementReducerActionClear
 
 const newAnnouncementReducer: Reducer<Announcement | null, newAnnouncementReducerAction> = ((prevState, action) => {
     switch (action.type) {
@@ -55,12 +60,12 @@ const newAnnouncementReducer: Reducer<Announcement | null, newAnnouncementReduce
             return null
         case "init":
             return {
-                userid: "",
+                user: null,
                 sound: null
             }
         case "edit":
             return {
-                userid: action.userid,
+                user: action.user,
                 sound: action.sound
             }
         case "setSound":
@@ -68,15 +73,16 @@ const newAnnouncementReducer: Reducer<Announcement | null, newAnnouncementReduce
                 ...prevState,
                 sound: action.sound
             } : null
-        case "setUserid":
+        case "setUser":
             return prevState ? {
                 ...prevState,
-                userid: action.userid
+                user: action.user
             } : null
     }
 })
 
 const AnnouncementPage: NextPage = () => {
+    const { data: sessionData } = useSession();
     const router = useRouter();
     const { guildid } = router.query
     const announcementsQuery = trpc.discord.getAnnouncements.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
@@ -85,15 +91,26 @@ const AnnouncementPage: NextPage = () => {
 
     const [announcementObject, dispatchAnnouncementAction] = useReducer(newAnnouncementReducer, null)
 
-    const [showAnnouncementDialog, setShowAnnouncementDialog] = useState("none" as AnnouncementDialogType)
+    const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
+    const [announcementDialogType, setAnnoucementDialogType] = useState("edit" as AnnouncementDialogType)
     const soundsQuery = trpc.discord.getSounds.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 2000 })
 
     const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
+
+    const guildMembersQuery = trpc.discord.getGuildMembers.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
 
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
     }
+
+    if (sessionData && !sessionData.user) {
+        signIn()
+    }
+
+    const guildMembersMap = guildMembersQuery.data?.reduce((acc, member) => {
+        return acc.set(member.userid, member)
+    }, new Map<string, User>())
 
     const selectValues = soundsQuery.data?.sounds.map(sound => (<option key={sound.soundid} value={sound.soundid}>{sound.name}</option>))
     selectValues?.unshift(<option key="0" disabled>Choose a sound ...</option>)
@@ -102,25 +119,26 @@ const AnnouncementPage: NextPage = () => {
         <div className={pageClasses}>
 
             {/* NAV HEADER */}
-            <div className="flex gap-2 items-center m-2">
-                <ChevronRightIcon className="h-4" />
-                <Link href="/config">Config</Link>
-                <ChevronRightIcon className="h-4" />
-                <Link href={"/config/" + guildid}>Server: {guildQuery.data?.guild.name}</Link>
-            </div>
+            <NavHeader elements={[
+                { label: "Configuration", href: "/config" },
+                { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
+                { label: "Announcements", href: "/config/" + guildQuery.data?.guild.name + "/sounds" }
+            ]} />
 
             {/* PAGE HEADER */}
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
                 <p className="font-bold text-4xl">Announcements</p>
                 <DefaultButton onClick={() => {
                     dispatchAnnouncementAction({ type: "init" })
-                    setShowAnnouncementDialog("create")
-                }}>Create new announcement</DefaultButton>
+                    setShowAnnouncementDialog(true)
+                    upsertAnnouncement.reset()
+                    setAnnoucementDialogType("create")
+                }}><PlusCircleIcon className="w-5 h-5 mr-1" />Create</DefaultButton>
             </div>
 
             {/* DIALOG */}
-            <Transition appear show={showAnnouncementDialog !== "none"} as={Fragment} >
-                <Dialog as="div" className="relative z-20" onClose={() => setShowAnnouncementDialog("none")}>
+            <Transition appear show={showAnnouncementDialog} as={Fragment} >
+                <Dialog as="div" className="relative z-20" onClose={() => setShowAnnouncementDialog(false)}>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
@@ -132,7 +150,7 @@ const AnnouncementPage: NextPage = () => {
                     >
                         <div className="fixed inset-0 bg-black bg-opacity-25" />
                     </Transition.Child>
-                    <div className="fixed inset-0 overflow-y-auto">
+                    <div className={`fixed inset-0`}>
                         <div className="flex min-h-full items-center justify-center p-4 text-center">
                             <Transition.Child
                                 as={Fragment}
@@ -143,7 +161,7 @@ const AnnouncementPage: NextPage = () => {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white">
+                                <Dialog.Panel className={`w-full max-w-md transform overflow-visible rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white ${RubikFont.variable} font-sans`}>
                                     <Dialog.Title
                                         as="h3"
                                         className="text-xl font-medium leading-6 mb-4"
@@ -151,10 +169,44 @@ const AnnouncementPage: NextPage = () => {
                                         Create new announcement
                                     </Dialog.Title>
                                     {announcementObject && <div className="flex flex-col gap-2">
-                                        <div>
-                                            <TextInput label="User" disabled={showAnnouncementDialog !== "create"} onChange={event => {
-                                                dispatchAnnouncementAction({ type: "setUserid", userid: event.target.value })
-                                            }} value={announcementObject.userid} />
+                                        <div className="w-full flex flex-row gap-2 items-center">
+                                            <label className="font-semibold">User</label>
+                                            {guildMembersQuery.data ?
+                                                <Listbox value={announcementObject.user} onChange={value => value && dispatchAnnouncementAction({ type: "setUser", user: value })}>
+                                                    <Listbox.Button className="rounded-lg p-1 ring-1 ring-gray-500 flex flex-row items-center grow justify-end">
+                                                        <span className="block truncate">{announcementObject.user?.name ?? "Select a User"}</span>
+                                                        <span className="pointer-events-none inset-y-0 right-0 flex items-center pr-2">
+                                                            <ChevronUpDownIcon
+                                                                className="h-5 w-5 text-gray-400"
+                                                                aria-hidden="true"
+                                                            />
+                                                        </span>
+                                                    </Listbox.Button>
+                                                    <Listbox.Options className="absolute right-6 mt-1 max-h-60 overflow-auto rounded-md bg-white dark:bg-gray-900 py-1 text-base shadow-lg ring-2 ring-black dark:ring-gray-500 ring-opacity-5 focus:outline-none sm:text-sm">
+                                                        {guildMembersQuery.data.filter(member => {
+                                                            !(announcementsQuery.data?.announcements.some(announcement => member.userid === announcement.userid) ?? false)
+                                                        }).map(member => (
+                                                            <Listbox.Option className="relative select-none py-2 pl-2 pr-4 dark:hover:bg-gray-800" key={member.userid} value={member}>
+                                                                <div className="flex items-center">
+                                                                    {guildMembersMap?.get(member.userid)?.userAvatar &&
+                                                                        // TODO guild member avatar has different url
+                                                                        <Image
+                                                                            src={`https://cdn.discordapp.com/avatars/${member.userid}/${guildMembersMap?.get(member.userid)?.userAvatar}.webp?size=32`}
+                                                                            alt="Userimage"
+                                                                            width={32}
+                                                                            height={32}
+                                                                            className="mr-2"
+                                                                        />
+                                                                    }
+                                                                    <p>{member.name}</p>
+                                                                </div>
+                                                            </Listbox.Option>
+                                                        ))}
+                                                    </Listbox.Options>
+                                                </Listbox>
+                                                :
+                                                <LoadingIcon className="h-5 w-5" />
+                                            }
                                         </div>
                                         <div className="w-full flex flex-row gap-2 items-center">
                                             <label className="font-semibold">Sound</label>
@@ -182,13 +234,13 @@ const AnnouncementPage: NextPage = () => {
                                             }
                                         </div>
                                         <div className="w-full flex flex-row items-center justify-center gap-4">
-                                            <PositiveButton disabled={!announcementObject.sound || !announcementObject.userid} onClick={() => upsertAnnouncement.mutate({ guildid: guildid, userid: announcementObject.userid, soundid: announcementObject.sound?.soundid ?? "" }, {
+                                            <PositiveButton disabled={!announcementObject.sound || !announcementObject.user} onClick={() => upsertAnnouncement.mutate({ guildid: guildid, userid: announcementObject.user?.userid ?? "", soundid: announcementObject.sound?.soundid ?? "" }, {
                                                 onSuccess: () => {
                                                     announcementsQuery.refetch()
-                                                    setShowAnnouncementDialog("none")
+                                                    setShowAnnouncementDialog(false)
                                                 }
-                                            })}>{(showAnnouncementDialog === "create" ? "Create" : "Edit") + " Announcement"}</PositiveButton>
-                                            <NegativeButton onClick={() => setShowAnnouncementDialog("none")}>Cancel</NegativeButton>
+                                            })}>{(announcementDialogType === "create" ? "Create" : "Edit") + " Announcement"}</PositiveButton>
+                                            <NegativeButton onClick={() => setShowAnnouncementDialog(false)}>Cancel</NegativeButton>
                                         </div>
                                     </div>}
                                 </Dialog.Panel>
@@ -199,13 +251,13 @@ const AnnouncementPage: NextPage = () => {
             </Transition>
 
             {/* PAGE CONTENT */}
-            <div className="w-full h-full">
+            <div className="w-full h-full overflow-visible">
                 {announcementsQuery.isLoading && <p>Loading ...</p>}
                 {announcementsQuery.data && !announcementsQuery.isError &&
-                    <div className="flex flex-col grow h-full">
+                    <div className="flex flex-col h-full overflow-visible">
                         {announcementsQuery.data.announcements.length > 0 ?
-                            <div className="overflow-x-auto grow h-full">
-                                <table className="table-auto border border-collapse border-black dark:border-white m-1 divide-x">
+                            <div className="overflow-x-auto grow h-full overflow-visible">
+                                <table className="table-auto border border-collapse border-black dark:border-white m-1 divide-x overflow-visible">
                                     <thead className="border-b border-black dark:border-white">
                                         <tr>
                                             <th>User</th>
@@ -213,26 +265,46 @@ const AnnouncementPage: NextPage = () => {
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y border-black dark:border-white">
+                                    <tbody className="divide-y border-black dark:border-white overflow-visible">
                                         {announcementsQuery.data.announcements.map(announcement => (
-                                            <tr className="divide-x border-black dark:border-white" key={announcement.userid}>
-                                                <td className="p-2 border-black dark:border-white">{announcement.userid}</td>
-                                                <td className="p-2 border-black dark:border-white">{announcement.sound.name}</td>
+                                            <tr className="divide-x border-black dark:border-white overflow-visible" key={announcement.userid}>
                                                 <td className="p-2 border-black dark:border-white">
+                                                    <div className="flex items-center">
+                                                        {guildMembersMap?.get(announcement.userid)?.userAvatar &&
+                                                            // TODO guild member avatar has different url
+                                                            <Image
+                                                                src={`https://cdn.discordapp.com/avatars/${announcement.userid}/${guildMembersMap?.get(announcement.userid)?.userAvatar}.webp?size=32`}
+                                                                alt="Userimage"
+                                                                width={32}
+                                                                height={32}
+                                                                className="mr-2"
+                                                            />
+                                                        }
+
+                                                        <p>{guildMembersMap?.get(announcement.userid)?.name ?? announcement.userid}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="p-2 border-black dark:border-white">{announcement.sound.name}</td>
+                                                <td className="p-2 border-black dark:border-white overflow-visible">
                                                     <div className="hidden md:flex flex-row gap-2">
-                                                        <DefaultButton
-                                                            onClick={() => deleteAnnouncement.mutate({ guildid: guildid, userid: announcement.userid }, { onSuccess: () => announcementsQuery.refetch() })}
-                                                        >Delete</DefaultButton>
+
                                                         <DefaultButton onClick={() => {
+                                                            const guildMember = guildMembersMap?.get(announcement.userid)
+                                                            if (!guildMember) return
                                                             dispatchAnnouncementAction({
                                                                 type: "edit",
                                                                 sound: announcement.sound,
-                                                                userid: announcement.userid
+                                                                user: guildMember
                                                             })
-                                                            setShowAnnouncementDialog("edit")
-                                                        }}>Edit Sound</DefaultButton>
+                                                            setShowAnnouncementDialog(true)
+                                                            upsertAnnouncement.reset()
+                                                            setAnnoucementDialogType("edit")
+                                                        }}><p>Edit Sound</p><PencilSquareIcon className="h-5 w-5 ml-2" /></DefaultButton>
+                                                        <DefaultButton
+                                                            onClick={() => deleteAnnouncement.mutate({ guildid: guildid, userid: announcement.userid }, { onSuccess: () => announcementsQuery.refetch() })}
+                                                        ><p>Delete</p><TrashIcon className="w-5 h-5 ml-2" /></DefaultButton>
                                                     </div>
-                                                    <div className="md:hidden">
+                                                    <div className="md:hidden overflow-visible">
                                                         <Menu as="div" className="relative inline-block text-left">
                                                             <div>
                                                                 <Menu.Button className="inline-flex w-full justify-center rounded-md bg-black bg-opacity-20 px-4 py-2 text-sm font-medium text-white hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
@@ -261,7 +333,18 @@ const AnnouncementPage: NextPage = () => {
                                                                             </button>
                                                                         </Menu.Item>
                                                                         <Menu.Item>
-                                                                            <button className={`group flex w-full items-center rounded-md px-2 py-2 text-sm`}>
+                                                                            <button className={`group flex w-full items-center rounded-md px-2 py-2 text-sm`} onClick={() => {
+                                                                                const guildMember = guildMembersMap?.get(announcement.userid)
+                                                                                if (!guildMember) return
+                                                                                dispatchAnnouncementAction({
+                                                                                    type: "edit",
+                                                                                    sound: announcement.sound,
+                                                                                    user: guildMember
+                                                                                })
+                                                                                setShowAnnouncementDialog(true)
+                                                                                upsertAnnouncement.reset()
+                                                                                setAnnoucementDialogType("edit")
+                                                                            }} >
                                                                                 <PencilSquareIcon className="h-5 w-5 mr-2" />
                                                                                 Edit Sound
                                                                             </button>

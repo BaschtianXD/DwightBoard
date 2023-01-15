@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { env } from "../../../env/server.mjs";
-import { GuildObject, MeGuildResponseBody } from "../../../types/discord-api";
+import { GuildMemberObject, GuildObject, MeGuildResponseBody } from "../../../types/discord-api";
 import { protectedProcedure, router } from "../trpc";
 import { spawn } from "child_process";
 
@@ -58,7 +58,7 @@ export const discordRouter = router({
     }),
     getGuild: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async (query) => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         const botToken = env.DISCORD_BOT_AUTH_TOKEN
@@ -77,6 +77,8 @@ export const discordRouter = router({
             throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
         }
 
+        // await new Promise(r => setTimeout(r, 5000));
+
         return {
             guild: guildParseResult.data
         }
@@ -84,7 +86,7 @@ export const discordRouter = router({
 
     getCountsForGuild: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         const soundCount = await query.ctx.prisma.sound.count({
@@ -118,7 +120,7 @@ export const discordRouter = router({
 
     getSounds: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async query => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         const sounds = await query.ctx.prisma.sound.findMany({
@@ -132,14 +134,33 @@ export const discordRouter = router({
                 hidden: true,
             }
         })
-        // await new Promise(r => setTimeout(r, 2000));
+        // await new Promise(r => setTimeout(r, 5000));
         return { sounds }
     }),
 
     createSound: protectedProcedure.input(z.object({ name: z.string(), hidden: z.boolean(), guildid: z.string(), fileData: z.string() })).mutation(async query => {
 
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const limitResult = await query.ctx.prisma.limit.findUnique({
+            where: {
+                guildid: query.input.guildid
+            }
+        })
+
+        const limit = limitResult?.limit ?? env.DEFAULT_LIMIT
+
+        const soundCount = await query.ctx.prisma.sound.count({
+            where: {
+                guildid: query.input.guildid,
+                deleted: false
+            }
+        })
+
+        if (soundCount >= limit) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You have reached the limit." })
         }
 
         const sound = await query.ctx.prisma.sound.create({
@@ -151,9 +172,10 @@ export const discordRouter = router({
             }
         })
 
+        if (env.NODE_ENV === "development") {
+            return
+        }
         await transcodeSound(sound.soundid, query.input.fileData)
-
-        // TODO inform Dwight about new sound
 
     }),
 
@@ -169,7 +191,7 @@ export const discordRouter = router({
         }
 
         if (!isGuildOwner(sound.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         await query.ctx.prisma.sound.update({
@@ -199,7 +221,7 @@ export const discordRouter = router({
         }
 
         if (!isGuildOwner(sound.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         await query.ctx.prisma.$transaction([
@@ -221,7 +243,7 @@ export const discordRouter = router({
 
     getAnnouncements: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         const announcements = await query.ctx.prisma.entree.findMany({
@@ -239,7 +261,7 @@ export const discordRouter = router({
 
     upsertAnnouncement: protectedProcedure.input(z.object({ guildid: z.string(), userid: z.string(), soundid: z.string() })).mutation(async query => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         await query.ctx.prisma.entree.upsert({
@@ -262,7 +284,7 @@ export const discordRouter = router({
 
     deleteAnnouncement: protectedProcedure.input(z.object({ guildid: z.string(), userid: z.string() })).mutation(async query => {
         if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "You are not the owner of the server you are trying to access." })
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
         await query.ctx.prisma.entree.delete({
@@ -271,6 +293,120 @@ export const discordRouter = router({
                     guildid: query.input.guildid,
                     userid: query.input.userid
                 }
+            }
+        })
+    }),
+
+    getGuildMembers: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        // TODO handle guilds with more than 1000 users
+        const botResponse = await fetch(`https://discord.com/api/guilds/${query.input.guildid}/members?limit=1000`, {
+            method: "get",
+            headers: new Headers({
+                'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+            })
+        })
+
+        const guildMembers = await z.array(GuildMemberObject).parseAsync(await botResponse.json()) // TODO error handling
+
+        const result = guildMembers.filter(member => {
+            return member.user.id !== "609005073531404304"
+        }).map(member => ({
+            userid: member.user.id,
+            name: member.nick ?? member.user.username,
+            avatar: member.avatar,
+            userAvatar: member.user.avatar,
+            discriminator: member.user.discriminator
+        }))
+
+        return result
+    }),
+
+    getLimit: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const limitResult = await query.ctx.prisma.limit.findUnique({
+            where: {
+                guildid: query.input.guildid
+            }
+        })
+
+        const limit = limitResult?.limit ?? env.DEFAULT_LIMIT
+
+        return limit
+    }),
+
+    pendingChanges: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const [lastModified, lastUpdate] = await Promise.all([
+            query.ctx.prisma.sound.aggregate({
+                _max: {
+                    modifiedAt: true
+                },
+                where: {
+                    guildid: query.input.guildid
+                }
+            }),
+            query.ctx.prisma.guildLastUpdate.findUnique({
+                where: {
+                    guildid: query.input.guildid
+                }
+            })
+        ])
+
+        return {
+            pendingChanges: !!(!lastUpdate && lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate > lastModified._max.modifiedAt)
+        }
+
+    }),
+
+    applyChanges: protectedProcedure.input(z.object({ guildid: z.string() })).mutation(async query => {
+        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        if (env.NODE_ENV === "production" && !env.DWIGHT_CALLBACK) {
+            return
+        }
+
+        // Check if rebuild is needed
+        const [lastModified, lastUpdate] = await Promise.all([
+            query.ctx.prisma.sound.aggregate({
+                _max: {
+                    modifiedAt: true
+                },
+                where: {
+                    guildid: query.input.guildid
+                }
+            }),
+            query.ctx.prisma.guildLastUpdate.findUnique({
+                where: {
+                    guildid: query.input.guildid
+                }
+            })
+        ])
+
+        if ((lastUpdate && !lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate > lastModified._max.modifiedAt)) {
+            // no rebuild needed
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No rebuild needed" })
+        }
+
+        await fetch(env.DWIGHT_CALLBACK + "/rebuild/" + query.input.guildid)
+
+        await query.ctx.prisma.guildLastUpdate.update({
+            where: {
+                guildid: query.input.guildid
+            },
+            data: {
+                lastUpdate: new Date()
             }
         })
     })

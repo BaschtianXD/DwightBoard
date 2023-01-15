@@ -1,22 +1,17 @@
 import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { trpc } from "../../../../utils/trpc";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline"
-import { FC, Fragment, ReactNode, Reducer } from "react";
+import { CheckCircleIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon, PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline"
+import { Fragment, Reducer } from "react";
 import { useReducer, useState } from "react";
 import Head from "next/head";
 import { DefaultButton, LoadingIcon, NegativeButton, PositiveButton, TextInput } from "../../../../components/form";
-import { Dialog, Switch, Transition } from "@headlessui/react";
+import { Dialog, Menu, Switch, Transition } from "@headlessui/react";
 import { pageClasses } from "../../../../components/shared";
-import Link from "next/link";
-import { ChevronRightIcon } from "@heroicons/react/20/solid";
+import NavHeader from "../../../../components/NavHeader";
+import { RubikFont } from "../../../../common";
 
-enum DragError {
-    TooManyFiles,
-    InvalidType,
-    InvalidFileType,
-    Filesize
-}
+type DragError = "TooManyFiles" | "InvalidFileType" | "InvalidType" | "Filesize"
 
 interface SoundObject {
     soundid?: string
@@ -53,7 +48,7 @@ type SoundActionEdit = {
     hidden: boolean
 }
 
-type SoundDialogType = "none" | "create" | "edit"
+type SoundDialogType = "create" | "edit"
 
 type NewSoundReducerAction = SoundActionCreate | SoundActionCreateFromFile | SoundActionClear | SoundActionSetName | SoundActionToggleHidden | SoundActionSetFile | SoundActionEdit
 
@@ -109,14 +104,18 @@ const SoundsPage: NextPage = () => {
     const [dragError, setDragError] = useState(null as DragError | null)
 
     const [soundObject, dispatchSoundAction] = useReducer(newSoundReducer, null as SoundObject | null)
-    const [showSoundDialog, setShowSoundDialog] = useState("none" as SoundDialogType)
+    const [showSoundDialog, setShowSoundDialog] = useState(false)
+    const [soundDialogType, setSoundDialogType] = useState("create" as SoundDialogType)
 
     const soundsQuery = trpc.discord.getSounds.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
     const soundCreateMutation = trpc.discord.createSound.useMutation()
     const soundDeleteMutation = trpc.discord.deleteSound.useMutation()
     const soundUpdateMutation = trpc.discord.updateSound.useMutation()
 
-    const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
+    const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
+    const limitQuery = trpc.discord.getLimit.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
+
+    const pendingChangesQuery = trpc.discord.pendingChanges.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
@@ -125,56 +124,72 @@ const SoundsPage: NextPage = () => {
     return (
         <div className={pageClasses}
             onDragOver={event => {
-                console.log("DragOver")
                 event.preventDefault()
             }}
             onDragEnter={ev => {
-                console.log("DragEnter")
                 ev.preventDefault()
                 setDragError(null)
-                const items = ev.dataTransfer.items
-                if (items.length !== 1 || !items[0]) {
-                    setDragError(DragError.TooManyFiles)
-                    return
-                }
-                const item = items[0]
-                if (item.kind !== "file") {
-                    console.log(item.kind)
-                    setDragError(DragError.InvalidType)
-                    return
-                }
-                if (item.type !== "audio/mpeg") {
-                    setDragError(DragError.InvalidFileType)
-                    return
-                }
+                // const items = ev.dataTransfer.items
+                // if (items.length !== 1 || !items[0]) {
+                //     setDragError("TooManyFiles")
+                //     return
+                // }
+                // const item = items[0]
+                // if (item.kind !== "file") {
+                //     console.log(item.kind)
+                //     setDragError("InvalidType")
+                //     return
+                // }
+                // if (item.type !== "audio/mpeg") {
+                //     setDragError("InvalidFileType")
+                //     console.log("File Type:" + item.type)
+                //     return
+                // }
                 setDragging(true)
             }}
             onDrop={ev => {
-                console.log("Drop")
                 ev.preventDefault()
                 setDragging(false)
                 if (dragError) {
                     return
                 }
-                const file = ev.dataTransfer.items[0]?.getAsFile()
+                const items = ev.dataTransfer.items
+                if (items.length !== 1 || !items[0]) {
+                    setDragError("TooManyFiles")
+                    return
+                }
+                const item = items[0]
+                if (item.kind !== "file") {
+                    console.log(item.kind)
+                    setDragError("InvalidType")
+                    return
+                }
+                if (item.type !== "audio/mpeg") {
+                    setDragError("InvalidFileType")
+                    console.log("File Type:" + item.type)
+                    return
+                }
+                const file = item.getAsFile()
                 if (!file) {
                     console.error("no file")
                     return
                 }
                 if (file.size > MaxFileSize) {
-                    setDragError(DragError.Filesize)
+                    setDragError("Filesize")
                     return
                 }
                 dispatchSoundAction({ type: "initFromFile", file: file })
-                setShowSoundDialog("create")
+                setShowSoundDialog(true)
+                setSoundDialogType("create")
+                soundCreateMutation.reset()
             }}
-            onDragEnd={() => {
-                console.log("DragEnd")
+            onDragEnd={ev => {
+                ev.preventDefault()
                 setDragError(null)
                 setDragging(false)
             }}
-            onDragLeave={() => {
-                console.log("DragLeave")
+            onDragLeave={ev => {
+                ev.preventDefault()
                 setDragError(null)
                 setDragging(false)
             }}
@@ -186,25 +201,34 @@ const SoundsPage: NextPage = () => {
             </Head>
 
             {/* NAV HEADER */}
-            <div className="flex gap-2 items-center m-2">
-                <ChevronRightIcon className="h-4" />
-                <Link href="/config">Config</Link>
-                <ChevronRightIcon className="h-4" />
-                <Link href={"/config/" + guildid}>Server: {guildQuery.data?.guild.name}</Link>
-            </div>
+            <NavHeader elements={[
+                { label: "Configuration", href: "/config" },
+                { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
+                { label: "Sounds", href: "/config/" + guildQuery.data?.guild.name + "/sounds" }
+            ]} />
 
             {/* PAGE HEADER */}
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
                 <p className="font-bold text-4xl">Sounds</p>
-                <DefaultButton onClick={() => {
-                    dispatchSoundAction({ type: "init" })
-                    setShowSoundDialog("create")
-                }}>Create new Sound</DefaultButton>
+                <div className="flex gap-2">
+                    {pendingChangesQuery.data?.pendingChanges &&
+                        <PositiveButton>
+                            <CheckCircleIcon className="w-5 h-5 mr-1" />Apply Changes
+                        </PositiveButton>
+                    }
+
+                    <DefaultButton onClick={() => {
+                        dispatchSoundAction({ type: "init" })
+                        setShowSoundDialog(true)
+                        soundCreateMutation.reset()
+                        setSoundDialogType("create")
+                    }}><PlusCircleIcon className="w-5 h-5 mr-1" />Create</DefaultButton>
+                </div>
             </div>
 
             {/* DIALOG */}
-            <Transition appear show={showSoundDialog !== "none"} as={Fragment} >
-                <Dialog as="div" className="relative z-20" onClose={() => setShowSoundDialog("none")}>
+            <Transition appear show={showSoundDialog} as={Fragment} >
+                <Dialog as="div" className="relative z-20" onClose={() => setShowSoundDialog(false)}>
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
@@ -227,12 +251,12 @@ const SoundsPage: NextPage = () => {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white">
+                                <Dialog.Panel className={`w-full max-w-md transform overflow-visible rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white ${RubikFont.variable} font-sans`}>
                                     <Dialog.Title
                                         as="h3"
                                         className="text-xl font-medium leading-6 mb-4"
                                     >
-                                        Create new Sound
+                                        {soundDialogType === "create" ? "Create new Sound" : "Edit Sound"}
                                     </Dialog.Title>
                                     {soundObject && <div className="flex flex-col gap-2">
                                         <div>
@@ -256,7 +280,7 @@ const SoundsPage: NextPage = () => {
                                                 </Switch>
                                             </div>
                                         </div>
-                                        {showSoundDialog === "create" &&
+                                        {soundDialogType === "create" &&
                                             <div className="flex items-center gap-2">
                                                 <label className="font-semibold">File</label>
                                                 {soundObject.file ?
@@ -271,25 +295,34 @@ const SoundsPage: NextPage = () => {
                                                 }
                                             </div>
                                         }
+                                        {soundCreateMutation.isError && soundCreateMutation.error &&
+                                            <div className="rounded border-2 border-red-600 bg-red-600/20 p-2">
+                                                <p className="font-bold">Error</p>
+                                                <p>{soundCreateMutation.error.message}</p>
+                                            </div>
+                                        }
                                         {!(soundCreateMutation.isLoading || soundUpdateMutation.isLoading) &&
                                             <div className="w-full flex flex-row items-center justify-center gap-4">
-                                                <PositiveButton disabled={!soundObject.name || (showSoundDialog === "create" && !soundObject.file)}
+                                                <PositiveButton disabled={!soundObject.name || (soundDialogType === "create" && !soundObject.file)}
                                                     onClick={async () => {
-                                                        if (showSoundDialog === "create" && soundObject.file) {
+                                                        if (soundDialogType === "create" && soundObject.file) {
                                                             const fileContent = await getBase64(soundObject.file)
                                                             soundCreateMutation.mutate({ name: soundObject.name, guildid: guildid, hidden: soundObject.hidden, fileData: fileContent }, {
                                                                 onSuccess: () => {
+                                                                    limitQuery.refetch()
+                                                                    pendingChangesQuery.refetch()
                                                                     soundsQuery.refetch()
-                                                                    setShowSoundDialog("none")
+                                                                    setShowSoundDialog(false)
                                                                 }
                                                             })
-                                                        } else if (showSoundDialog === "edit" && soundObject.soundid) {
+                                                        } else if (soundDialogType === "edit" && soundObject.soundid) {
                                                             await soundUpdateMutation.mutateAsync({ name: soundObject.name, hidden: soundObject.hidden, soundid: soundObject.soundid })
+                                                            pendingChangesQuery.refetch()
                                                             soundsQuery.refetch()
-                                                            setShowSoundDialog("none")
+                                                            setShowSoundDialog(false)
                                                         }
-                                                    }}>{(showSoundDialog === "create" ? "Create" : "Edit") + " Sound"}</PositiveButton>
-                                                <NegativeButton onClick={() => setShowSoundDialog("none")}>Cancel</NegativeButton>
+                                                    }}>{(soundDialogType === "create" ? "Create" : "Edit") + " Sound"}</PositiveButton>
+                                                <NegativeButton onClick={() => setShowSoundDialog(false)}>Cancel</NegativeButton>
                                             </div>
                                         }
 
@@ -306,52 +339,148 @@ const SoundsPage: NextPage = () => {
 
             {/* PAGE CONTENT */}
             {soundsQuery.isSuccess && soundsQuery.data && !(dragging || dragError) &&
-                <table className="table-auto border border-collapse m-1 divide-x">
-                    <thead>
-                        <tr>
-                            <th className="border p-1">Name</th>
-                            <th className="border p-1">Visibility</th>
-                            <th className="border p-1">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {soundsQuery.data.sounds.map(sound => (
-                            <tr key={sound.soundid} className="divide-x">
-                                <td>{sound.name}</td>
-                                <td>
-                                    {sound.hidden ? <EyeSlashIcon className="max-h-6 m-auto" /> : <EyeIcon className="max-h-6 m-auto" />}
+                <>
+                    {soundsQuery.data.sounds.length > 0 ?
+                        <div className="overflow-visible">
+                            <table className="table-auto border border-collapse border-black dark:border-white m-1 divide-x overflow-visible">
+                                <thead className="border-b border-black dark:border-white">
+                                    <tr className="divide-x border-black dark:border-white overflow-visible">
+                                        <th className="border p-1">Name</th>
+                                        <th className="border p-1">Visibility</th>
+                                        <th className="border p-1">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y border-black dark:border-white overflow-visible">
+                                    {soundsQuery.data.sounds.map(sound => (
+                                        <tr key={sound.soundid} className="divide-x border-black dark:border-white">
+                                            <td className="p-2">{sound.name}</td>
+                                            <td className="p-2">
+                                                {sound.hidden ? <EyeSlashIcon className="max-h-6 m-auto" /> : <EyeIcon className="max-h-6 m-auto" />}
+                                                {sound.hidden ? <span className="sr-only">Hidden</span> : <span className="sr-only">Visible</span>}
+                                            </td>
+                                            <td className="p-2">
+                                                <div className="hidden md:flex flex-row gap-2">
+                                                    <DefaultButton onClick={() => {
+                                                        dispatchSoundAction({ type: "edit", name: sound.name, hidden: sound.hidden, soundid: sound.soundid })
+                                                        setShowSoundDialog(true)
+                                                        soundCreateMutation.reset()
+                                                        setSoundDialogType("edit")
+                                                    }}><PencilSquareIcon className="w-5 h-5 mr-2" /><p>Edit</p></DefaultButton>
+                                                    <DefaultButton onClick={() => {
+                                                        soundDeleteMutation.mutate({ soundid: sound.soundid }, {
+                                                            onSuccess: () => {
+                                                                pendingChangesQuery.refetch()
+                                                                limitQuery.refetch()
+                                                                soundsQuery.refetch()
+                                                            }
+                                                        })
+                                                    }}><TrashIcon className="w-5 h-5 mr-2" /><p>Delete</p></DefaultButton>
+                                                </div>
+                                                <div className="md:hidden">
+                                                    <Menu as="div" className="relative inline-block text-left">
+                                                        <div>
+                                                            <Menu.Button className="inline-flex w-full justify-center rounded-md bg-black bg-opacity-20 px-4 py-2 text-sm font-medium text-white hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
+                                                                Actions
+                                                                <ChevronDownIcon
+                                                                    className="ml-2 -mr-1 h-5 w-5 text-violet-200 hover:text-violet-100"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </Menu.Button>
+                                                        </div>
+                                                        <Transition
+                                                            as={Fragment}
+                                                            enter="transition ease-out duration-100"
+                                                            enterFrom="transform opacity-0 scale-95"
+                                                            enterTo="transform opacity-100 scale-100"
+                                                            leave="transition ease-in duration-75"
+                                                            leaveFrom="transform opacity-100 scale-100"
+                                                            leaveTo="transform opacity-0 scale-95"
+                                                        >
+                                                            <Menu.Items className="absolute right-0 mt-1 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white dark:bg-gray-900 dark:text-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                                                <div className="p-1">
+                                                                    <Menu.Item>
+                                                                        <button className={`group flex w-full items-center rounded-md px-2 py-2 text-sm`} onClick={() => {
+                                                                            dispatchSoundAction({ type: "edit", name: sound.name, hidden: sound.hidden, soundid: sound.soundid })
+                                                                            setShowSoundDialog(true)
+                                                                            soundCreateMutation.reset()
+                                                                            setSoundDialogType("edit")
+                                                                        }} >
+                                                                            <PencilSquareIcon className="h-5 w-5 mr-2" />
+                                                                            Edit
+                                                                        </button>
+                                                                    </Menu.Item>
+                                                                    <Menu.Item>
+                                                                        <button className={`group flex w-full items-center rounded-md px-2 py-2 text-sm`} onClick={() => {
+                                                                            soundDeleteMutation.mutate({ soundid: sound.soundid }, {
+                                                                                onSuccess: () => {
+                                                                                    pendingChangesQuery.refetch()
+                                                                                    limitQuery.refetch()
+                                                                                    soundsQuery.refetch()
+                                                                                }
+                                                                            })
+                                                                        }}>
+                                                                            <TrashIcon className="h-5 w-5 mr-2" />
+                                                                            Delete
+                                                                        </button>
+                                                                    </Menu.Item>
+                                                                </div>
 
-                                </td>
-                                <td>
-                                    <div className="flex flex-row gap-2 p-1">
-                                        <DefaultButton onClick={() => {
-                                            dispatchSoundAction({ type: "edit", name: sound.name, hidden: sound.hidden, soundid: sound.soundid })
-                                            setShowSoundDialog("edit")
-                                        }}>Edit</DefaultButton>
-                                        <DefaultButton onClick={() => {
-                                            soundDeleteMutation.mutate({ soundid: sound.soundid }, {
-                                                onSuccess: () => {
-                                                    soundsQuery.refetch()
-                                                }
-                                            })
-                                        }}>Delete</DefaultButton>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                                            </Menu.Items>
+                                                        </Transition>
+                                                    </Menu>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        :
+                        <div className="m-auto">
+                            <p>There seem to be no sounds on this server. How about you create one?</p>
+                        </div>
+                    }
+                </>
             }
             {soundsQuery.isLoading &&
-                <p>Loading ...</p>
+                <div className="m-auto flex">
+                    <p className="text-xl">Loading</p>
+                    <LoadingIcon className="h-6 w-6 ml-2" />
+                </div>
             }
 
             {dragging &&
-                <div className="h-full w-full flex-r">
-                    <p>Drop your file here to create a new sound</p>
+                <div className="h-full w-full m-auto">
+                    <p className="text-xl">Drop your file here to create a new sound</p>
                 </div>
             }
-            {dragError && <p>Drag Error: {dragError}</p>}
+            {dragError &&
+                <div className="m-auto rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white">
+                    <p className="font-bold text-2xl text-center mb-4">Error</p>
+                    {dragError === "Filesize" &&
+                        <p>The file you tried to upload is too big.</p>
+                    }
+                    {(dragError === "InvalidFileType" || dragError === "InvalidType") &&
+                        <p>The file you tried to upload has the wrong filetype.</p>
+                    }
+                    {dragError === "TooManyFiles" &&
+                        <p>You tried to upload multiple files. We can only handle 1 at a time.</p>
+                    }
+                    <div className="my-4">
+                        <p>The following restrictions apply:</p>
+                        <ul className="list-disc list-inside">
+                            <li>Maximum filesize: 100kb</li>
+                            <li>Filetype: .mp3</li>
+                            <li>Number of files: 1</li>
+                        </ul>
+                    </div>
+                    <div className="w-full flex justify-center">
+                        <DefaultButton onClick={() => {
+                            setDragError(null)
+                        }}>Dismiss</DefaultButton>
+                    </div>
+                </div>
+            }
 
         </div>
 

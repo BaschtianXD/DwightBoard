@@ -128,3 +128,16 @@ export const GuildObject = z.object({
     premium_progress_bar_enabled: z.boolean()
 })
 
+export const GuildMemberObject = z.object({
+    user: UserObject,
+    nick: z.string().nullish(),
+    avatar: z.string().nullish(),
+    roles: z.array(z.string()),
+    joined_at: z.string(),
+    premium_since: z.string().nullish(),
+    deaf: z.boolean(),
+    mute: z.boolean(),
+    pending: z.boolean().nullish(),
+    permissions: z.string().nullish(),
+    communication_disabled_until: z.string().nullish()
+})

@@ -1,30 +1,47 @@
 import { type NextPage } from "next";
+import { signIn, useSession } from "next-auth/react";
 import Head from "next/head";
 import Link from "next/link";
 import type { FC } from "react";
+import { DefaultButton, LinkButton } from "../../components/form";
 import { pageClasses } from "../../components/shared";
 
 const GetStartedPage: NextPage = () => {
+    const session = useSession()
     return (
         <div className={pageClasses}>
             <Head>
                 <title>Dwight - Getting Started</title>
             </Head>
 
-            <div><p className="font-bold dark:text-slate-300 text-3xl">Get Started</p></div>
+            <div><p className="font-bold dark:text-slate-300 text-4xl">Get Started</p></div>
             <StepBox headline="Step 1: Add Dwight to your server">
                 <p>Click on the following link and add Dwight to a server you own</p>
                 <div className="w-full flex flex-row items-center justify-center mt-4">
-                    <a className="p-2 border-2 hover:text-slate-50 bg-slate-700 rounded" href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands" target="_blank" rel="noreferrer">Add to Server</a>
+                    <LinkButton href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands" label="Add to server" newTab />
                 </div>
+            </StepBox>
+            <StepBox headline="Step 2: Sign in">
+                <p>Sign in with your Discord account.</p>
+                {session.data ?
+                    <p>You are already logged in. Go to step 3.</p>
+                    :
+                    <div className="w-full flex flex-row items-center justify-center mt-4">
+                        <DefaultButton onClick={() => signIn("discord")}>Sign In</DefaultButton>
+                    </div>
+                }
 
             </StepBox>
-            <StepBox headline="Step 2: Add Sounds">
-                <p className="text-xs">Login with Discord required</p>
-                <p>Go to Setup, select the server you added Dwight to and go to Sounds. There you can add Sounds.</p>
+            <StepBox headline="Step 3: Add Sounds">
+                <p className="text-xs">Signin with Discord required</p>
+                <p>Go to <Link className="font-bold" href="/config">Configuration</Link>, select the server you added Dwight to and go to Manage Sounds. There you can add sounds. {"(mp3 file, size < 100kb)"}</p>
+                <p>When you added a visible sound, click on Apply Changes and a channel containing a button for each visible sound will be created. Changes do not take effect until this button has been clicked.</p>
             </StepBox>
-            <StepBox headline="Step 3: Enjoy">
-                <p>Dwight automatically creates a channel with a button for each sound. When pressing a button, Dwight joins your voice channel and plays the requested sound.</p>
+            <StepBox headline="Step 4: Enjoy">
+                <p>Join a voice channel on your server and press one of the sound buttons. Dwight will join your voice channel and play the sound.</p>
+            </StepBox>
+            <StepBox headline="Step 5: Add an announcement">
+                <p>When creating a sound you can set its visibility to to hidden. No button for this this sound will be created. But you can use this sound for announcements. Instead of Manage Sounds, go to Manage Announcements and create an announcement for a user. When this user joins a voicechannel the selected sound will be played.</p>
             </StepBox>
             <StepBox headline="Additional Features">
                 <ul className="list-disc list-inside">
@@ -32,7 +49,6 @@ const GetStartedPage: NextPage = () => {
                     <li>Announcement sounds. Play a sounds when someone joins a voice channel</li>
                 </ul>
             </StepBox>
-            <Link href="/">Back</Link>
         </div>
     )
 }
@@ -46,7 +62,7 @@ type StepBoxProps = {
 
 const StepBox: FC<StepBoxProps> = (props) => {
     return (
-        <div className="p-2 border-4 rounded-md dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <div className="p-2 rounded-lg bg-gray-500/20">
             <p className="text-lg mb-2">{props.headline}</p>
             {props.children}
         </div>

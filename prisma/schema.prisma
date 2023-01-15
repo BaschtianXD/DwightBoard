@@ -48,14 +48,15 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  sounds        Sound[]
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  accounts       Account[]
+  sessions       Session[]
+  SoundsCreated  Sound[]   @relation("created")
+  SoundsModified Sound[]   @relation("modified")
 }
 
 model VerificationToken {
@@ -67,16 +68,19 @@ model VerificationToken {
 }
 
 model Sound {
-  soundid     String   @id @default(uuid())
-  guildid     String
-  name        String
-  hidden      Boolean
-  deleted     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  createdById String?
-  plays       Play[]
-  entrees     Entree[]
-  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  soundid      String   @id @default(uuid())
+  guildid      String
+  name         String
+  hidden       Boolean
+  deleted      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  createdById  String?
+  modifiedAt   DateTime @default(now()) @updatedAt
+  modifiedById String?
+  plays        Play[]
+  entrees      Entree[]
+  createdBy    User?    @relation(fields: [createdById], references: [id], onDelete: SetNull, name: "created")
+  modifiedBy   User?    @relation(fields: [modifiedById], references: [id], onDelete: SetNull, name: "modified")
 }
 
 model Play {
@@ -101,4 +105,9 @@ model Entree {
 model Limit {
   guildid String @id
   limit   Int
+}
+
+model GuildLastUpdate {
+  guildid    String   @id
+  lastUpdate DateTime
 }
