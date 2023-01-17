@@ -73,6 +73,7 @@ model Sound {
   name         String
   hidden       Boolean
   deleted      Boolean  @default(false)
+  fileDeleted  Boolean  @default(false)
   createdAt    DateTime @default(now())
   createdById  String?
   modifiedAt   DateTime @default(now()) @updatedAt
