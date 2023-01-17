@@ -33,7 +33,7 @@ const ConfigPage: NextPage = () => {
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
                 <p className="font-bold text-4xl">Configuration</p>
             </div>
-            <p>Here are your servers Dwight is on.</p>
+            <p>Here are your servers Dwight is on. You can configure Dwight on servers you are the owner of or have the Manage Server permission</p>
             {guilds.isLoading &&
                 <div className="w-full grow flex flex-row items-center justify-around">
                     <LoadingIcon className="w-10 h-10" />

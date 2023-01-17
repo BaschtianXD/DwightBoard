@@ -7,7 +7,8 @@
 		"qwtel.sqlite-viewer",
 		"bradlc.vscode-tailwindcss",
 		"ms-vscode-remote.remote-containers",
-		"dbaeumer.vscode-eslint"
+		"dbaeumer.vscode-eslint",
+		"moalamri.inline-fold"
 	],
 	// List of extensions recommended by VS Code that should not be recommended for users of this workspace.
 	"unwantedRecommendations": []

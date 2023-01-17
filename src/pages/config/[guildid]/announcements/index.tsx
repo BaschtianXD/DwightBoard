@@ -10,12 +10,13 @@ import { PositiveButton, DefaultButton, TextInput, NegativeButton, LoadingIcon }
 import type { AppRouter } from "../../../../server/trpc/router/_app";
 import { trpc } from "../../../../utils/trpc";
 import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
-import { PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ArrowUpRightIcon, PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { pageClasses } from "../../../../components/shared";
 import NavHeader from "../../../../components/NavHeader";
 import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import { RubikFont } from "../../../../common";
+import Link from "next/link";
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 type Sound = RouterOutput["discord"]["getSounds"]["sounds"][number]
@@ -112,9 +113,6 @@ const AnnouncementPage: NextPage = () => {
         return acc.set(member.userid, member)
     }, new Map<string, User>())
 
-    const selectValues = soundsQuery.data?.sounds.map(sound => (<option key={sound.soundid} value={sound.soundid}>{sound.name}</option>))
-    selectValues?.unshift(<option key="0" disabled>Choose a sound ...</option>)
-
     return (
         <div className={pageClasses}>
 
@@ -122,7 +120,7 @@ const AnnouncementPage: NextPage = () => {
             <NavHeader elements={[
                 { label: "Configuration", href: "/config" },
                 { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
-                { label: "Announcements", href: "/config/" + guildQuery.data?.guild.name + "/sounds" }
+                { label: "Announcements", href: "/config/" + guildQuery.data?.guild.id + "/announcements" }
             ]} />
 
             {/* PAGE HEADER */}
@@ -183,9 +181,7 @@ const AnnouncementPage: NextPage = () => {
                                                         </span>
                                                     </Listbox.Button>
                                                     <Listbox.Options className="absolute right-6 mt-1 max-h-60 overflow-auto rounded-md bg-white dark:bg-gray-900 py-1 text-base shadow-lg ring-2 ring-black dark:ring-gray-500 ring-opacity-5 focus:outline-none sm:text-sm">
-                                                        {guildMembersQuery.data.filter(member => {
-                                                            !(announcementsQuery.data?.announcements.some(announcement => member.userid === announcement.userid) ?? false)
-                                                        }).map(member => (
+                                                        {guildMembersQuery.data.map(member => (
                                                             <Listbox.Option className="relative select-none py-2 pl-2 pr-4 dark:hover:bg-gray-800" key={member.userid} value={member}>
                                                                 <div className="flex items-center">
                                                                     {guildMembersMap?.get(member.userid)?.userAvatar &&
@@ -210,7 +206,7 @@ const AnnouncementPage: NextPage = () => {
                                         </div>
                                         <div className="w-full flex flex-row gap-2 items-center">
                                             <label className="font-semibold">Sound</label>
-                                            {soundsQuery.data ?
+                                            {soundsQuery.data && soundsQuery.data.sounds.length > 0 &&
                                                 <Listbox value={announcementObject.sound} onChange={value => value && dispatchAnnouncementAction({ type: "setSound", sound: value })}>
                                                     <Listbox.Button className="rounded-lg p-1 ring-1 ring-gray-500 flex flex-row items-center grow justify-end">
                                                         <span className="block truncate">{announcementObject.sound?.name ?? "Select a sound"}</span>
@@ -229,9 +225,9 @@ const AnnouncementPage: NextPage = () => {
                                                         ))}
                                                     </Listbox.Options>
                                                 </Listbox>
-                                                :
-                                                <LoadingIcon className="h-5 w-5" />
                                             }
+                                            {soundsQuery.isLoading && <LoadingIcon className="h-5 w-5" />}
+                                            {soundsQuery.data && soundsQuery.data.sounds.length === 0 && <p>No sounds on this server.<br />Go to <Link className="font-bold" href={"/config/" + guildQuery.data?.guild.id + "/sounds"}>Manage Sounds</Link> and create one.</p>}
                                         </div>
                                         <div className="w-full flex flex-row items-center justify-center gap-4">
                                             <PositiveButton disabled={!announcementObject.sound || !announcementObject.user} onClick={() => upsertAnnouncement.mutate({ guildid: guildid, userid: announcementObject.user?.userid ?? "", soundid: announcementObject.sound?.soundid ?? "" }, {

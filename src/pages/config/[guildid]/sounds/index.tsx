@@ -116,6 +116,7 @@ const SoundsPage: NextPage = () => {
     const limitQuery = trpc.discord.getLimit.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
 
     const pendingChangesQuery = trpc.discord.pendingChanges.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
+    const applyChangesMutation = trpc.discord.applyChanges.useMutation()
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
@@ -204,7 +205,7 @@ const SoundsPage: NextPage = () => {
             <NavHeader elements={[
                 { label: "Configuration", href: "/config" },
                 { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
-                { label: "Sounds", href: "/config/" + guildQuery.data?.guild.name + "/sounds" }
+                { label: "Sounds", href: "/config/" + guildQuery.data?.guild.id + "/sounds" }
             ]} />
 
             {/* PAGE HEADER */}
@@ -212,8 +213,12 @@ const SoundsPage: NextPage = () => {
                 <p className="font-bold text-4xl">Sounds</p>
                 <div className="flex gap-2">
                     {pendingChangesQuery.data?.pendingChanges &&
-                        <PositiveButton>
-                            <CheckCircleIcon className="w-5 h-5 mr-1" />Apply Changes
+                        <PositiveButton onClick={async () => {
+                            await applyChangesMutation.mutateAsync({ guildid: guildid })
+                            pendingChangesQuery.refetch()
+                        }}>
+                            <CheckCircleIcon className="w-5 h-5 mr-1" />
+                            Apply Changes
                         </PositiveButton>
                     }
 
@@ -330,6 +335,45 @@ const SoundsPage: NextPage = () => {
                                             <LoadingIcon className="w-9 h-9 m-auto" />
                                         }
                                     </div>}
+                                </Dialog.Panel>
+                            </Transition.Child>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+
+            <Transition appear show={applyChangesMutation.isLoading} as={Fragment} >
+                <Dialog as="div" className="relative z-20" onClose={() => { return }}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-black bg-opacity-25" />
+                    </Transition.Child>
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4 text-center">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-300"
+                                enterFrom="opacity-0 scale-95"
+                                enterTo="opacity-100 scale-100"
+                                leave="ease-in duration-200"
+                                leaveFrom="opacity-100 scale-100"
+                                leaveTo="opacity-0 scale-95"
+                            >
+                                <Dialog.Panel className={`w-full max-w-md transform overflow-visible rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all dark:text-white ${RubikFont.variable} font-sans`}>
+                                    <Dialog.Title
+                                        as="h3"
+                                        className="text-xl font-medium leading-6 mb-4"
+                                    >
+                                        Applying changes
+                                    </Dialog.Title>
+                                    <LoadingIcon className="w-10 h-10 m-auto" />
                                 </Dialog.Panel>
                             </Transition.Child>
                         </div>

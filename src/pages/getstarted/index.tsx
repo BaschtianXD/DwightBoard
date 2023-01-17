@@ -41,7 +41,7 @@ const GetStartedPage: NextPage = () => {
                 <p>Join a voice channel on your server and press one of the sound buttons. Dwight will join your voice channel and play the sound.</p>
             </StepBox>
             <StepBox headline="Step 5: Add an announcement">
-                <p>When creating a sound you can set its visibility to to hidden. No button for this this sound will be created. But you can use this sound for announcements. Instead of Manage Sounds, go to Manage Announcements and create an announcement for a user. When this user joins a voicechannel the selected sound will be played.</p>
+                <p>When creating a sound you can set its visibility to to hidden. No button for this this sound will be created. But you can use this sound for announcements. After creating the sound, go to Manage Announcements and create an announcement for a user. When this user joins a voice channel the selected sound will be played. This does not trigger when switching between voice channels.</p>
             </StepBox>
             <StepBox headline="Additional Features">
                 <ul className="list-disc list-inside">

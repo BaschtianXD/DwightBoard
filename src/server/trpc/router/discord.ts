@@ -4,6 +4,7 @@ import { env } from "../../../env/server.mjs";
 import { GuildMemberObject, GuildObject, MeGuildResponseBody } from "../../../types/discord-api";
 import { protectedProcedure, router } from "../trpc";
 import { spawn } from "child_process";
+import { Cache } from "memory-cache"
 
 export const discordRouter = router({
     guilds: protectedProcedure.query(async (query) => {
@@ -28,8 +29,9 @@ export const discordRouter = router({
             })
         })
         // TODO error handling in case discord api returns an error (Rate Limited, AccessToken expired...)
+        // TODO implement fitlering so we only return guilds the user can actually edit (owner or has role with manage guild)
         const guilds = MeGuildResponseBody.parse(await response.json())
-        const ownedGuilds = guilds.filter(guild => guild.owner).map(guild => {
+        const ownedGuilds = guilds.map(guild => {
             return {
                 id: guild.id,
                 name: guild.name,
@@ -57,7 +59,7 @@ export const discordRouter = router({
         }
     }),
     getGuild: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async (query) => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -74,7 +76,7 @@ export const discordRouter = router({
         const guildParseResult = GuildObject.safeParse(json)
         if (!guildParseResult.success) {
             console.log(guildParseResult.error)
-            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error: Cannot retrieve Server" })
         }
 
         // await new Promise(r => setTimeout(r, 5000));
@@ -85,7 +87,7 @@ export const discordRouter = router({
     }),
 
     getCountsForGuild: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -119,7 +121,7 @@ export const discordRouter = router({
     }),
 
     getSounds: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -140,7 +142,7 @@ export const discordRouter = router({
 
     createSound: protectedProcedure.input(z.object({ name: z.string(), hidden: z.boolean(), guildid: z.string(), fileData: z.string() })).mutation(async query => {
 
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -190,7 +192,7 @@ export const discordRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "The sound you want to edit does not exist" })
         }
 
-        if (!isGuildOwner(sound.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(sound.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -220,7 +222,7 @@ export const discordRouter = router({
             throw new TRPCError({ code: "BAD_REQUEST", message: "The requested sound does not exist" })
         }
 
-        if (!isGuildOwner(sound.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(sound.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -242,7 +244,7 @@ export const discordRouter = router({
     }),
 
     getAnnouncements: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -260,7 +262,7 @@ export const discordRouter = router({
     }),
 
     upsertAnnouncement: protectedProcedure.input(z.object({ guildid: z.string(), userid: z.string(), soundid: z.string() })).mutation(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -283,7 +285,7 @@ export const discordRouter = router({
     }),
 
     deleteAnnouncement: protectedProcedure.input(z.object({ guildid: z.string(), userid: z.string() })).mutation(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -298,7 +300,7 @@ export const discordRouter = router({
     }),
 
     getGuildMembers: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -326,7 +328,7 @@ export const discordRouter = router({
     }),
 
     getLimit: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -342,7 +344,7 @@ export const discordRouter = router({
     }),
 
     pendingChanges: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -352,7 +354,8 @@ export const discordRouter = router({
                     modifiedAt: true
                 },
                 where: {
-                    guildid: query.input.guildid
+                    guildid: query.input.guildid,
+                    hidden: false
                 }
             }),
             query.ctx.prisma.guildLastUpdate.findUnique({
@@ -362,19 +365,17 @@ export const discordRouter = router({
             })
         ])
 
+        const hasPendingChanges = !!(!lastUpdate && lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate < lastModified._max.modifiedAt)
+
         return {
-            pendingChanges: !!(!lastUpdate && lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate > lastModified._max.modifiedAt)
+            pendingChanges: hasPendingChanges
         }
 
     }),
 
     applyChanges: protectedProcedure.input(z.object({ guildid: z.string() })).mutation(async query => {
-        if (!isGuildOwner(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
-        }
-
-        if (env.NODE_ENV === "production" && !env.DWIGHT_CALLBACK) {
-            return
         }
 
         // Check if rebuild is needed
@@ -384,7 +385,8 @@ export const discordRouter = router({
                     modifiedAt: true
                 },
                 where: {
-                    guildid: query.input.guildid
+                    guildid: query.input.guildid,
+                    hidden: false
                 }
             }),
             query.ctx.prisma.guildLastUpdate.findUnique({
@@ -394,18 +396,32 @@ export const discordRouter = router({
             })
         ])
 
-        if ((lastUpdate && !lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate > lastModified._max.modifiedAt)) {
+        const hasPendingChanges = !!(!lastUpdate && lastModified._max.modifiedAt) || (lastUpdate && lastModified._max.modifiedAt && lastUpdate.lastUpdate < lastModified._max.modifiedAt)
+
+        if (!hasPendingChanges) {
             // no rebuild needed
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No rebuild needed" })
         }
+        if (env.DWIGHT_CALLBACK) {
+            try {
+                await fetch(env.DWIGHT_CALLBACK + "/rebuild/" + query.input.guildid)
+            } catch (err) {
+                throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not rebuild channel" })
+            }
+        } else {
+            await new Promise(r => setTimeout(r, 5000));
+        }
 
-        await fetch(env.DWIGHT_CALLBACK + "/rebuild/" + query.input.guildid)
 
-        await query.ctx.prisma.guildLastUpdate.update({
+        await query.ctx.prisma.guildLastUpdate.upsert({
             where: {
                 guildid: query.input.guildid
             },
-            data: {
+            update: {
+                lastUpdate: new Date()
+            },
+            create: {
+                guildid: query.input.guildid,
                 lastUpdate: new Date()
             }
         })
@@ -435,24 +451,55 @@ async function transcodeSound(filename: string, datab64: string) {
     })
 }
 
-async function isGuildOwner(guildid: string, discordUserId: string) {
+// AUTH
+type GuildId = string
+const guildMemberCache = new Cache<string, z.infer<typeof GuildMemberObject>>()
+const guildDataCache = new Cache<GuildId, { ownerId: string, roleIds: string[] }>()
 
-    if (!prisma) {
-        throw new Error("Internal Server Error")
-    }
-
-    const response = await fetch("https://discord.com/api/guilds/" + guildid, {
-        method: "get",
-        headers: new Headers({
-            'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+async function getGuildMember(guildid: GuildId, discordUserId: string) {
+    let guildMember = guildMemberCache.get(guildid + discordUserId)
+    if (!guildMember) {
+        const guildMemberResponse = await fetch("https://discord.com/api/guilds/" + guildid + "/members/" + discordUserId, {
+            method: "get",
+            headers: new Headers({
+                'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+            })
         })
-    })
-    const json = await response.json()
-    const guildParseResult = GuildObject.safeParse(json)
-
-    if (guildParseResult.success) {
-        return guildParseResult.data.owner_id === discordUserId
+        const guildMemberJson = await guildMemberResponse.json()
+        const guildParseResult = GuildMemberObject.safeParse(guildMemberJson)
+        if (guildParseResult.success) {
+            guildMemberCache.put(guildid + discordUserId, guildParseResult.data, 60 * 1000) // keep 1 minute in cache
+            guildMember = guildParseResult.data
+        } else {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
+        }
     }
+    return guildMember
+}
+async function getGuildData(guildid: GuildId) {
+    let guildData = guildDataCache.get(guildid)
+    if (!guildData) {
+        const guildResponse = await fetch("https://discord.com/api/guilds/" + guildid, {
+            method: "get",
+            headers: new Headers({
+                'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+            })
+        })
+        const guildJson = await guildResponse.json()
+        const guildResult = GuildObject.safeParse(guildJson)
+        if (!guildResult.success) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
+        }
+        const rolesWithSufficientPermissions = guildResult.data.roles.filter(role => ((role.permissions & 0x8) === 0x8 || (role.permissions & 0x20) === 0x20)).map(role => role.id)
+        guildData = { ownerId: guildResult.data.owner_id, roleIds: rolesWithSufficientPermissions }
+        guildDataCache.put(guildid, guildData, 60 * 1000)
+    }
+    return guildData
+}
 
-    throw new Error("Discord API Error")
+async function hasManageGuild(guildid: string, discordUserId: string) {
+
+    const [guildMember, { ownerId, roleIds }] = await Promise.all([getGuildMember(guildid, discordUserId), getGuildData(guildid)])
+
+    return guildMember.user.id === ownerId || guildMember.roles.some(assignedRoleId => roleIds?.includes(assignedRoleId) ?? false)
 }

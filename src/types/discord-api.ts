@@ -51,7 +51,7 @@ export const EmojiObject = z.object({
     id: z.string().nullable(),
     name: z.string().nullable(),
     roles: z.array(z.string()),
-    user: UserObject,
+    user: UserObject.nullish(),
     require_colons: z.boolean().nullish(),
     managed: z.boolean().nullish(),
     animated: z.boolean().nullish(),
