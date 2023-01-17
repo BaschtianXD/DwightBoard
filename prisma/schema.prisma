@@ -86,7 +86,7 @@ model Sound {
 model Play {
   userid  String
   soundid String
-  time    DateTime
+  time    DateTime @default(now())
   sound   Sound    @relation(fields: [soundid], references: [soundid], onDelete: Cascade)
 
   @@id([soundid, time])
