@@ -12,12 +12,12 @@ const Home: NextPage = () => {
       </Head>
       <main className="flex min-h-full flex-col items-center justify-center">
         <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
-          <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
+          <h1 className="text-5xl font-extrabold tracking-tight dark:text-white sm:text-[5rem]">
             Dwight - Discord Bot
           </h1>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
             <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
+              className="flex max-w-xs flex-col gap-4 rounded-xl bg-gray-500/20 p-4 dark:text-white hover:bg-gray-500/30"
               href="/getstarted"
             >
               <h3 className="text-2xl font-bold">Get Started →</h3>
@@ -26,7 +26,7 @@ const Home: NextPage = () => {
               </div>
             </Link>
             <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
+              className="flex max-w-xs flex-col gap-4 rounded-xl bg-gray-500/20 p-4 dark:text-white hover:bg-gray-500/30"
               href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands"
               target="_blank"
             >
