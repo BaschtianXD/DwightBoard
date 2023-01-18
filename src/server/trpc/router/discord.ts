@@ -406,7 +406,7 @@ export const discordRouter = router({
             try {
                 await fetch(env.DWIGHT_CALLBACK + "/" + query.input.guildid)
             } catch (err) {
-                throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not rebuild channel" })
+                throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not rebuild channel", cause: err })
             }
         } else {
             await new Promise(r => setTimeout(r, 5000));
