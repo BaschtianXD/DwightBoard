@@ -40,6 +40,7 @@ RUN \
 ##### RUNNER
 
 FROM --platform=linux/amd64 node:16-alpine3.16 AS runner
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 
 ENV NODE_ENV production
