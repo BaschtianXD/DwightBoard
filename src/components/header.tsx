@@ -31,7 +31,10 @@ const Header = () => {
                         <ul className="flex flex-col mt-4 font-medium lg:flex-row lg:space-x-8 lg:mt-0">
                             <HeaderItem key="0" href="/">Home</HeaderItem>
                             <HeaderItem key="1" href="/getstarted">Get Started</HeaderItem>
-                            <HeaderItem key="2" href="/config">Configuration</HeaderItem>
+                            {sessionData &&
+                                <HeaderItem key="2" href="/config">Configuration</HeaderItem>
+                            }
+
 
                             {sessionData &&
                                 <li key="3">
