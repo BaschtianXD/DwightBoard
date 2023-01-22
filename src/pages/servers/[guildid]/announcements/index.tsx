@@ -17,6 +17,7 @@ import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import { RubikFont } from "../../../../common";
 import Link from "next/link";
+import Head from "next/head";
 
 type RouterOutput = inferRouterOutputs<AppRouter>
 type Sound = RouterOutput["discord"]["getSounds"]["sounds"][number]
@@ -116,11 +117,15 @@ const AnnouncementPage: NextPage = () => {
     return (
         <div className={pageClasses}>
 
+            <Head>
+                <title>Dwight - {guildQuery.data?.guild.name ?? ""} - Announcements</title>
+            </Head>
+
             {/* NAV HEADER */}
             <NavHeader elements={[
-                { label: "Configuration", href: "/config" },
-                { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
-                { label: "Announcements", href: "/config/" + guildQuery.data?.guild.id + "/announcements" }
+                { label: "Servers", href: "/servers" },
+                { label: "" + guildQuery.data?.guild.name, href: "/servers/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
+                { label: "Announcements", href: "/servers/" + guildQuery.data?.guild.id + "/announcements" }
             ]} />
 
             {/* PAGE HEADER */}
@@ -227,7 +232,7 @@ const AnnouncementPage: NextPage = () => {
                                                 </Listbox>
                                             }
                                             {soundsQuery.isLoading && <LoadingIcon className="h-5 w-5" />}
-                                            {soundsQuery.data && soundsQuery.data.sounds.length === 0 && <p>No sounds on this server.<br />Go to <Link className="font-bold" href={"/config/" + guildQuery.data?.guild.id + "/sounds"}>Manage Sounds</Link> and create one.</p>}
+                                            {soundsQuery.data && soundsQuery.data.sounds.length === 0 && <p>No sounds on this server.<br />Go to <Link className="font-bold" href={"/servers/" + guildQuery.data?.guild.id + "/sounds"}>Manage Sounds</Link> and create one.</p>}
                                         </div>
                                         <div className="w-full flex flex-row items-center justify-center gap-4">
                                             <PositiveButton disabled={!announcementObject.sound || !announcementObject.user} onClick={() => upsertAnnouncement.mutate({ guildid: guildid, userid: announcementObject.user?.userid ?? "", soundid: announcementObject.sound?.soundid ?? "" }, {

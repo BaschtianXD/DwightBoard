@@ -1,6 +1,7 @@
 import { type NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
+import { inviteLink } from "../components/shared";
 
 const Home: NextPage = () => {
 
@@ -45,7 +46,7 @@ const Home: NextPage = () => {
             </Link>
             <Link
               className="flex max-w-xs flex-col gap-4 rounded-xl bg-gray-500/20 p-4 dark:text-white hover:bg-gray-500/30"
-              href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands"
+              href={inviteLink}
               target="_blank"
             >
               <h3 className="text-2xl font-bold">Add Dwight to your server</h3>

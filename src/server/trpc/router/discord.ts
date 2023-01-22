@@ -343,7 +343,7 @@ export const discordRouter = router({
         return limit
     }),
 
-    pendingChanges: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+    getPendingChanges: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
         if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
@@ -427,6 +427,49 @@ export const discordRouter = router({
                 lastUpdate: new Date()
             }
         })
+    }),
+
+    getTopSoundsForGuild: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const queryResult = await query.ctx.prisma.play.groupBy({
+            by: ["soundid"],
+            where: {
+                sound: {
+                    guildid: query.input.guildid,
+                    hidden: false,
+                    deleted: false
+                }
+            },
+            _count: true
+        })
+
+        return queryResult.map(entry => ({
+            soundid: entry.soundid,
+            count: entry._count
+        }))
+    }),
+
+    getSoundsForStats: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
+        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const sounds = await query.ctx.prisma.sound.findMany({
+            where: {
+                guildid: query.input.guildid,
+                hidden: false,
+                deleted: false
+            },
+            select: {
+                soundid: true,
+                name: true,
+            }
+        })
+
+        return sounds
     })
 })
 
@@ -478,6 +521,8 @@ async function getGuildMember(guildid: GuildId, discordUserId: string) {
     }
     return guildMember
 }
+
+/// Returns the ownerid and roles that has permission manage server
 async function getGuildData(guildid: GuildId) {
     let guildData = guildDataCache.get(guildid)
     if (!guildData) {

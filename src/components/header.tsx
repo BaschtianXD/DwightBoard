@@ -32,7 +32,7 @@ const Header = () => {
                             <HeaderItem key="0" href="/">Home</HeaderItem>
                             <HeaderItem key="1" href="/getstarted">Get Started</HeaderItem>
                             {sessionData &&
-                                <HeaderItem key="2" href="/config">Configuration</HeaderItem>
+                                <HeaderItem key="2" href="/servers">Servers</HeaderItem>
                             }
 
 

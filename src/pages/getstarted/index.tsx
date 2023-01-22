@@ -4,7 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import type { FC } from "react";
 import { DefaultButton, LinkButton } from "../../components/form";
-import { pageClasses } from "../../components/shared";
+import { inviteLink, pageClasses } from "../../components/shared";
 
 const GetStartedPage: NextPage = () => {
     const session = useSession()
@@ -16,9 +16,9 @@ const GetStartedPage: NextPage = () => {
 
             <div><p className="font-bold dark:text-slate-300 text-4xl">Get Started</p></div>
             <StepBox headline="Step 1: Add Dwight to your server">
-                <p>Click on the following link and add Dwight to a server you own</p>
+                <p>Click on the following link and add Dwight to a server you own or have the Manage Server permission for.</p>
                 <div className="w-full flex flex-row items-center justify-center mt-4">
-                    <LinkButton href="https://discord.com/api/oauth2/authorize?client_id=609005073531404304&permissions=2184309776&scope=bot%20applications.commands" label="Add to server" newTab />
+                    <LinkButton href={inviteLink} label="Add to server" newTab />
                 </div>
             </StepBox>
             <StepBox headline="Step 2: Sign in">
@@ -34,7 +34,7 @@ const GetStartedPage: NextPage = () => {
             </StepBox>
             <StepBox headline="Step 3: Add Sounds">
                 <p className="text-xs">Signin with Discord required</p>
-                <p>Go to <Link className="font-bold" href="/config">Configuration</Link>, select the server you added Dwight to and go to Manage Sounds. There you can add sounds. {"(mp3 file, size < 100kb)"}</p>
+                <p>Go to <Link className="font-bold" href="/servers">Servers</Link>, select the server you added Dwight to and go to Manage Sounds. There you can add sounds. {"(mp3 file, size < 100kb)"}</p>
                 <p>When you added a visible sound, click on Apply Changes and a channel containing a button for each visible sound will be created. Changes do not take effect until this button has been clicked.</p>
             </StepBox>
             <StepBox headline="Step 4: Enjoy">

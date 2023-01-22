@@ -2,7 +2,8 @@ import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { trpc } from "../../../../utils/trpc";
 import { CheckCircleIcon, ChevronDownIcon, EyeIcon, EyeSlashIcon, PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline"
-import { Fragment, Reducer } from "react";
+import type { Reducer } from "react";
+import { Fragment } from "react";
 import { useReducer, useState } from "react";
 import Head from "next/head";
 import { DefaultButton, LoadingIcon, NegativeButton, PositiveButton, TextInput } from "../../../../components/form";
@@ -115,7 +116,7 @@ const SoundsPage: NextPage = () => {
     const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
     const limitQuery = trpc.discord.getLimit.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
 
-    const pendingChangesQuery = trpc.discord.pendingChanges.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
+    const pendingChangesQuery = trpc.discord.getPendingChanges.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
     const applyChangesMutation = trpc.discord.applyChanges.useMutation()
 
     if (typeof guildid !== "string") {
@@ -196,21 +197,26 @@ const SoundsPage: NextPage = () => {
             }}
         >
             <Head>
-                <title>
-                    Sounds
-                </title>
+                <title>Dwight - {guildQuery.data?.guild.name ?? ""} - Sounds</title>
             </Head>
 
             {/* NAV HEADER */}
             <NavHeader elements={[
-                { label: "Configuration", href: "/config" },
-                { label: "Server: " + guildQuery.data?.guild.name, href: "/config/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
-                { label: "Sounds", href: "/config/" + guildQuery.data?.guild.id + "/sounds" }
+                { label: "Servers", href: "/servers" },
+                { label: "" + guildQuery.data?.guild.name, href: "/servers/" + guildQuery.data?.guild.id, loading: !guildQuery.data },
+                { label: "Sounds", href: "/servers/" + guildQuery.data?.guild.id + "/sounds" }
             ]} />
 
             {/* PAGE HEADER */}
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
-                <p className="font-bold text-4xl">Sounds</p>
+                <div className="flex gap-2 items-center">
+                    <p className="font-bold text-4xl">Sounds</p>
+                    {soundsQuery.data && limitQuery.data &&
+                        <p>({soundsQuery.data.sounds.length}/{limitQuery.data})</p>
+                    }
+
+                </div>
+
                 <div className="flex gap-2">
                     {pendingChangesQuery.data?.pendingChanges &&
                         <PositiveButton onClick={async () => {
