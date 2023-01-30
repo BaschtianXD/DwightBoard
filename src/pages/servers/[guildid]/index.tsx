@@ -3,6 +3,7 @@ import type { NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { LoadingIcon } from "../../../components/form";
 import NavHeader from "../../../components/NavHeader";
 import { pageClasses } from "../../../components/shared";
 import { trpc } from "../../../utils/trpc";
@@ -13,6 +14,16 @@ const GuildConfigPage: NextPage = () => {
 
     const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5, retry: false })
     const countQuery = trpc.discord.getCountsForGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string" })
+
+    if (typeof guildid !== "string") {
+        return (<LoadingIcon className="h-20 w-20" />)
+    }
+
+    if (countQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || guildQuery.error?.data?.code === "PRECONDITION_FAILED"
+    ) {
+        router.push("/")
+    }
     return (
         <div className={pageClasses}>
             <Head>

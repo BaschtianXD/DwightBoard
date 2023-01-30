@@ -9,7 +9,7 @@ import { inviteLink, pageClasses } from "../../components/shared";
 import { trpc } from "../../utils/trpc";
 
 const ServersPage: NextPage = () => {
-    const guilds = trpc.discord.guilds.useQuery(undefined, { staleTime: 1000 * 10 })
+    const guilds = trpc.discord.getGuilds.useQuery(undefined, { staleTime: 1000 * 10 })
 
     if (guilds.error) {
         if (guilds.error.data?.code === "UNAUTHORIZED") {

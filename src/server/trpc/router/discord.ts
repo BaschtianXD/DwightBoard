@@ -1,13 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { env } from "../../../env/server.mjs";
-import { GuildMemberObject, GuildObject, MeGuildResponseBody } from "../../../types/discord-api";
+import { DiscordApiError, GuildMemberObject, GuildObject, MeGuildResponseBody } from "../../../types/discord-api";
 import { protectedProcedure, router } from "../trpc";
 import { spawn } from "child_process";
 import { Cache } from "memory-cache"
 
 export const discordRouter = router({
-    guilds: protectedProcedure.query(async (query) => {
+    getGuilds: protectedProcedure.query(async (query) => {
 
         const discordAccount = await query.ctx.prisma.account.findFirstOrThrow({
             where: {
@@ -22,41 +22,60 @@ export const discordRouter = router({
         // }
         const accessToken = discordAccount.access_token
 
-        const response = await fetch("https://discord.com/api/users/@me/guilds", {
-            method: "get",
-            headers: new Headers({
-                'Authorization': 'Bearer ' + accessToken
+        try {
+            const response = await fetch("https://discord.com/api/users/@me/guilds", {
+                method: "get",
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken
+                })
             })
-        })
-        // TODO error handling in case discord api returns an error (Rate Limited, AccessToken expired...)
-        // TODO implement fitlering so we only return guilds the user can actually edit (owner or has role with manage guild)
-        const guilds = MeGuildResponseBody.parse(await response.json())
-        const ownedGuilds = guilds.map(guild => {
-            return {
-                id: guild.id,
-                name: guild.name,
-                icon: guild.icon
+            // TODO error handling in case discord api returns an error (Rate Limited, AccessToken expired...)
+            // TODO implement fitlering so we only return guilds the user can actually edit (owner or has role with manage guild)
+            const jsonBody = await response.json()
+            if (Math.floor(response.status / 100) !== 2) {
+                const errorParseResult = DiscordApiError.safeParse(jsonBody)
+                if (!errorParseResult.success) {
+                    console.error("ERROR - TRPC DISCORD - GETGUILDS - MALFORMED BODY")
+                    console.error(jsonBody)
+                    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API error" })
+                }
+                console.error("ERROR - TRPC DISCORD - GETGUILDS - MALFORMED API REQUEST")
+                console.error(errorParseResult.data)
+                throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API error" })
             }
-        })
 
-        const botResponse = await fetch("https://discord.com/api/users/@me/guilds", {
-            method: "get",
-            headers: new Headers({
-                'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+            const guilds = MeGuildResponseBody.parse(jsonBody)
+            const ownedGuilds = guilds.map(guild => {
+                return {
+                    id: guild.id,
+                    name: guild.name,
+                    icon: guild.icon
+                }
             })
-        })
-        const botGuilds = MeGuildResponseBody.parse(await botResponse.json())
 
-        const intersection = ownedGuilds.filter(botGuild => botGuilds.some(userGuild => botGuild.id === userGuild.id))
+            const botResponse = await fetch("https://discord.com/api/users/@me/guilds", {
+                method: "get",
+                headers: new Headers({
+                    'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
+                })
+            })
+            const botGuilds = MeGuildResponseBody.parse(await botResponse.json())
 
-        const guildMap = new Map<string, { id: string, name: string, icon: string | null }>()
-        intersection.reduce((acc, value) => {
-            return acc.set(value.id, value)
-        }, guildMap)
+            const intersection = ownedGuilds.filter(botGuild => botGuilds.some(userGuild => botGuild.id === userGuild.id))
 
-        return {
-            guilds: guildMap
+            const guildMap = new Map<string, { id: string, name: string, icon: string | null }>()
+            intersection.reduce((acc, value) => {
+                return acc.set(value.id, value)
+            }, guildMap)
+
+            return {
+                guilds: guildMap
+            }
+        } catch (error) {
+            throw error
         }
+
+
     }),
     getGuild: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async (query) => {
         if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
@@ -138,6 +157,27 @@ export const discordRouter = router({
         })
         // await new Promise(r => setTimeout(r, 5000));
         return { sounds }
+    }),
+
+    getVisibleSounds: protectedProcedure.input(z.object({ guildid: z.string().regex(/^\d+$/) })).query(async query => {
+        if (!isGuildMember(query.input.guildid, query.ctx.session.user.discordId)) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
+        }
+
+        const sounds = await query.ctx.prisma.sound.findMany({
+            where: {
+                guildid: query.input.guildid,
+                deleted: false,
+                hidden: false
+            },
+            select: {
+                soundid: true,
+                name: true,
+                hidden: true,
+            }
+        })
+        // await new Promise(r => setTimeout(r, 5000));
+        return sounds
     }),
 
     createSound: protectedProcedure.input(z.object({ name: z.string(), hidden: z.boolean(), guildid: z.string(), fileData: z.string() })).mutation(async query => {
@@ -300,7 +340,7 @@ export const discordRouter = router({
     }),
 
     getGuildMembers: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!isGuildMember(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -430,7 +470,7 @@ export const discordRouter = router({
     }),
 
     getTopSoundsForGuild: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
+        if (!isGuildMember(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
@@ -452,24 +492,34 @@ export const discordRouter = router({
         }))
     }),
 
-    getSoundsForStats: protectedProcedure.input(z.object({ guildid: z.string() })).query(async query => {
-        if (!hasManageGuild(query.input.guildid, query.ctx.session.user.discordId)) {
+    getLastPlays: protectedProcedure.input(z.object({ count: z.number().min(1).max(10).default(10), guildid: z.string() })).query(async query => {
+        if (!isGuildMember(query.input.guildid, query.ctx.session.user.discordId)) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: "You are not entitled to access this server." })
         }
 
-        const sounds = await query.ctx.prisma.sound.findMany({
-            where: {
-                guildid: query.input.guildid,
-                hidden: false,
-                deleted: false
-            },
+        const queryResult = await query.ctx.prisma.play.findMany({
             select: {
-                soundid: true,
-                name: true,
-            }
+                sound: {
+                    select: {
+                        name: true
+                    }
+                }
+            },
+            where: {
+                userid: {
+                    not: "609005073531404304" // id of dwight
+                },
+                sound: {
+                    guildid: query.input.guildid
+                }
+            },
+            orderBy: {
+                time: "desc"
+            },
+            take: query.input.count
         })
 
-        return sounds
+        return queryResult
     })
 })
 
@@ -510,6 +560,13 @@ async function getGuildMember(guildid: GuildId, discordUserId: string) {
                 'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
             })
         })
+        if (guildMemberResponse.status === 404) {
+            // This happens when someone tries to access a guild they're not a member of
+            return null
+        }
+        if (guildMemberResponse.status !== 200) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
+        }
         const guildMemberJson = await guildMemberResponse.json()
         const guildParseResult = GuildMemberObject.safeParse(guildMemberJson)
         if (guildParseResult.success) {
@@ -532,6 +589,9 @@ async function getGuildData(guildid: GuildId) {
                 'Authorization': 'Bot ' + env.DISCORD_BOT_AUTH_TOKEN
             })
         })
+        if (guildResponse.status !== 200) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Discord API Error" })
+        }
         const guildJson = await guildResponse.json()
         const guildResult = GuildObject.safeParse(guildJson)
         if (!guildResult.success) {
@@ -548,5 +608,11 @@ async function hasManageGuild(guildid: string, discordUserId: string) {
 
     const [guildMember, { ownerId, roleIds }] = await Promise.all([getGuildMember(guildid, discordUserId), getGuildData(guildid)])
 
-    return guildMember.user.id === ownerId || guildMember.roles.some(assignedRoleId => roleIds?.includes(assignedRoleId) ?? false)
+    return guildMember && (guildMember.user.id === ownerId || guildMember.roles.some(assignedRoleId => roleIds?.includes(assignedRoleId) ?? false))
+}
+
+async function isGuildMember(guildid: string, discordUserId: string) {
+    const guildMember = await getGuildMember(guildid, discordUserId)
+
+    return !!guildMember
 }

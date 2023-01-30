@@ -141,3 +141,15 @@ export const GuildMemberObject = z.object({
     permissions: z.string().nullish(),
     communication_disabled_until: z.string().nullish()
 })
+
+export const DiscordApiError = z.object({
+    code: z.number(),
+    message: z.string()
+})
+
+export const DiscordAccessTokenResponse = z.object({
+    access_token: z.string(),
+    token_type: z.string(),
+    expires_in: z.number(),
+    refresh_token: z.string()
+})

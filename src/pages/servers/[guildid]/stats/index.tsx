@@ -11,20 +11,26 @@ import Head from "next/head";
 import { TrophyIcon } from "@heroicons/react/24/outline";
 
 type RouterOutput = inferRouterOutputs<AppRouter>
-type Sound = RouterOutput["discord"]["getSoundsForStats"][number]
-type User = RouterOutput["discord"]["getGuildMembers"][number]
+type Sound = RouterOutput["discord"]["getVisibleSounds"][number]
 
 const StatsPage: NextPage = () => {
     const { data: sessionData } = useSession();
     const router = useRouter();
     const { guildid } = router.query
-    const soundsQuery = trpc.discord.getSoundsForStats.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 2000 })
+    const soundsQuery = trpc.discord.getVisibleSounds.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 2000 })
     const playCountQuery = trpc.discord.getTopSoundsForGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 2000 })
-
     const guildQuery = trpc.discord.getGuild.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
+    const lastPlays = trpc.discord.getLastPlays.useQuery({ guildid: typeof guildid === "string" ? guildid : "" }, { enabled: typeof guildid === "string", staleTime: 1000 * 60 * 5 })
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
+    }
+
+    if (soundsQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || playCountQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || guildQuery.error?.data?.code === "PRECONDITION_FAILED"
+    ) {
+        router.push("/")
     }
 
     if (sessionData && !sessionData.user) {
@@ -58,8 +64,6 @@ const StatsPage: NextPage = () => {
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
                 <p className="font-bold text-4xl">Statistics</p>
             </div>
-
-
 
             {/* PAGE CONTENT */}
             <div className="w-full h-full overflow-visible">
@@ -100,6 +104,14 @@ const StatsPage: NextPage = () => {
 
                             </ol>
                         </div>
+                    </div>
+                }
+                {lastPlays.data &&
+                    <div>
+                        <ol>
+                            {lastPlays.data.map((play, index) => (<li key={index}>{play.sound.name}</li>))}
+                        </ol>
+
                     </div>
                 }
 
