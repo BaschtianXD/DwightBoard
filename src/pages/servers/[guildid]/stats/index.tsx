@@ -66,7 +66,7 @@ const StatsPage: NextPage = () => {
             </div>
 
             {/* PAGE CONTENT */}
-            <div className="w-full h-full overflow-visible">
+            <div className="w-full h-full overflow-visible flex flex-col gap-8">
                 {scoreboard &&
                     <div>
                         <p className="text-center text-2xl font-bold">Most played sounds</p>
@@ -81,7 +81,7 @@ const StatsPage: NextPage = () => {
                                     <li className="lg:order-2">
                                         <TrophyIcon className="w-16 h-16 mx-auto stroke-yellow-400" />
                                         <p className="text-center">1.</p>
-                                        <p className="text-center">{scoreboard[0].soundName}</p>
+                                        <p className="text-center text-lg font-bold">{scoreboard[0].soundName}</p>
                                         <p className="text-center">{scoreboard[0].count} plays</p>
                                     </li>
                                 }
@@ -89,7 +89,7 @@ const StatsPage: NextPage = () => {
                                     <li className="lg:order-1 lg:mt-4">
                                         <TrophyIcon className="w-12 h-12 mx-auto stroke-gray-400" />
                                         <p className="text-center">2.</p>
-                                        <p className="text-center">{scoreboard[1].soundName}</p>
+                                        <p className="text-center text-lg font-bold">{scoreboard[1].soundName}</p>
                                         <p className="text-center">{scoreboard[1].count} plays</p>
                                     </li>
                                 }
@@ -97,7 +97,7 @@ const StatsPage: NextPage = () => {
                                     <li className="lg:order-3 lg:mt-6">
                                         <TrophyIcon className="w-10 h-10 mx-auto stroke-amber-700" />
                                         <p className="text-center">3.</p>
-                                        <p className="text-center">{scoreboard[2].soundName}</p>
+                                        <p className="text-center text-lg font-bold">{scoreboard[2].soundName}</p>
                                         <p className="text-center">{scoreboard[2].count} plays</p>
                                     </li>
                                 }
@@ -107,9 +107,14 @@ const StatsPage: NextPage = () => {
                     </div>
                 }
                 {lastPlays.data &&
-                    <div>
-                        <ol>
-                            {lastPlays.data.map((play, index) => (<li key={index}>{play.sound.name}</li>))}
+                    <div className="w-full max-w-full pb-6">
+                        <p className="text-center text-2xl font-bold mb-2">Last played sounds</p>
+                        <ol className="flex flex-row overflow-x-scroll snap-x snap-mandatory -left-4 relative w-screen md:flex-wrap md:overflow-hidden md:snap-none md:w-auto md:left-0 md:relat">
+                            {lastPlays.data.map((play, index) => (
+                                <li className="m-1 p-4 rounded bg-gray-500/50 inline-block w-5/6 md:w-auto snap-start scroll-ml-4" key={index}>
+                                    <p className="text-center text-3xl whitespace-nowrap">{play.sound.name}</p>
+                                </li>
+                            ))}
                         </ol>
 
                     </div>
