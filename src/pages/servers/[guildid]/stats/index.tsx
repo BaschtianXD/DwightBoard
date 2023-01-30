@@ -108,7 +108,7 @@ const StatsPage: NextPage = () => {
                 }
                 {lastPlays.data &&
                     <div className="w-full max-w-full pb-6">
-                        <p className="text-center text-2xl font-bold mb-2">Last played sounds</p>
+                        <p className="text-center text-2xl font-bold mb-2">Recently played sounds</p>
                         <ol className="flex flex-row overflow-x-scroll snap-x snap-mandatory -left-4 relative w-screen md:flex-wrap md:overflow-hidden md:snap-none md:w-auto md:left-0 md:relat">
                             {lastPlays.data.map((play, index) => (
                                 <li className="m-1 p-4 rounded bg-gray-500/50 inline-block w-5/6 md:w-auto snap-start scroll-ml-4" key={index}>
