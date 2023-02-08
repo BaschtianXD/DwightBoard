@@ -13,13 +13,10 @@ export const authOptions: NextAuthOptions = {
   // Include user.id on session
   callbacks: {
     async jwt({ token, user, account }) {
-      console.log("JWT CALLBACK")
       return token
     },
     async session({ session, user, token }) {
-      console.log("SESSION CALLBACK")
       if (session.user) {
-        session.user.id = user.id;
         const discordAccount = await prisma.account.findFirstOrThrow({
           where: {
             provider: "discord",
@@ -30,25 +27,48 @@ export const authOptions: NextAuthOptions = {
         if (!discordAccount.expires_at || (discordAccount.expires_at * 1000) < Date.now()) {
           if (discordAccount.refresh_token) {
             console.log("REFRESH ACCESS TOKEN")
-            const refreshTokenData = await refreshAccessToken(discordAccount.refresh_token)
-            await prisma.account.update({
+            try {
+              const refreshTokenData = await refreshAccessToken(discordAccount.refresh_token)
+              await prisma.account.update({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "discord",
+                    providerAccountId: discordAccount.providerAccountId
+                  }
+                },
+                data: {
+                  refresh_token: refreshTokenData.refreshToken,
+                  expires_at: refreshTokenData.accessTokenExpiresAt,
+                  access_token: refreshTokenData.accessToken
+                }
+              })
+            } catch (error) {
+              await prisma.account.delete({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "discord",
+                    providerAccountId: discordAccount.providerAccountId
+                  }
+                }
+              })
+              session.user = undefined
+              return session
+            }
+          } else {
+            await prisma.account.delete({
               where: {
                 provider_providerAccountId: {
                   provider: "discord",
                   providerAccountId: discordAccount.providerAccountId
                 }
-              },
-              data: {
-                refresh_token: refreshTokenData.refreshToken,
-                expires_at: refreshTokenData.accessTokenExpiresAt,
-                access_token: refreshTokenData.accessToken
               }
             })
-          } else {
-            // TODO remove entry from table account and force new sign in
+            session.user = undefined
+            return session
           }
 
         }
+        session.user.id = user.id;
         session.user.discordId = discordAccount.providerAccountId
       }
       return session;
@@ -89,6 +109,7 @@ async function refreshAccessToken(token: string) {
 
     if (!response.ok) {
       console.error("RESPONSE WAS NOT OKAY")
+      console.error(await response.json())
       throw response
     }
 
