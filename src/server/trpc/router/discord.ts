@@ -449,7 +449,8 @@ export const discordRouter = router({
                 throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not rebuild channel", cause: err })
             }
         } else {
-            await new Promise(r => setTimeout(r, 5000));
+            // only happens when env is not connected to dwigthprocess
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Not connected to dwight process" })
         }
 
 
