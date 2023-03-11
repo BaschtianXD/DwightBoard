@@ -424,8 +424,7 @@ export const discordRouter = router({
                     modifiedAt: true
                 },
                 where: {
-                    guildid: query.input.guildid,
-                    hidden: false
+                    guildid: query.input.guildid
                 }
             }),
             query.ctx.prisma.guildLastUpdate.findUnique({
