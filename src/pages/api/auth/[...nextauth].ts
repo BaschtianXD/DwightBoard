@@ -5,7 +5,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 
 import { env } from "../../../env/server.mjs";
 import { prisma } from "../../../server/db/client";
-import { JWT } from "next-auth/jwt/types.js";
 import { URLSearchParams } from "url";
 import { DiscordAccessTokenResponse } from "../../../types/discord-api";
 
