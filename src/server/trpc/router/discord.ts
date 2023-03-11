@@ -394,8 +394,7 @@ export const discordRouter = router({
                     modifiedAt: true
                 },
                 where: {
-                    guildid: query.input.guildid,
-                    hidden: false
+                    guildid: query.input.guildid
                 }
             }),
             query.ctx.prisma.guildLastUpdate.findUnique({
@@ -608,7 +607,7 @@ async function hasManageGuild(guildid: string, discordUserId: string) {
 
     const [guildMember, { ownerId, roleIds }] = await Promise.all([getGuildMember(guildid, discordUserId), getGuildData(guildid)])
 
-    return guildMember && (guildMember.user.id === ownerId || guildMember.roles.some(assignedRoleId => roleIds?.includes(assignedRoleId) ?? false))
+    return guildMember && (guildMember.user.id === ownerId || guildMember.roles.some(assignedRoleId => roleIds.includes(assignedRoleId)))
 }
 
 async function isGuildMember(guildid: string, discordUserId: string) {
