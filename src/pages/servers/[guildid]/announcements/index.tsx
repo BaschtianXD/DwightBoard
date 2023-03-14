@@ -6,11 +6,11 @@ import type { Reducer } from "react";
 import { useState } from "react";
 import { Fragment } from "react";
 import { useReducer } from "react";
-import { PositiveButton, DefaultButton, TextInput, NegativeButton, LoadingIcon } from "../../../../components/form";
+import { PositiveButton, DefaultButton, NegativeButton, LoadingIcon } from "../../../../components/form";
 import type { AppRouter } from "../../../../server/trpc/router/_app";
 import { trpc } from "../../../../utils/trpc";
 import { ChevronDownIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid"
-import { ArrowUpRightIcon, PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PencilSquareIcon, PlusCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { pageClasses } from "../../../../components/shared";
 import NavHeader from "../../../../components/NavHeader";
 import { signIn, useSession } from "next-auth/react";
@@ -104,6 +104,14 @@ const AnnouncementPage: NextPage = () => {
 
     if (typeof guildid !== "string") {
         return (<LoadingIcon className="h-20 w-20" />)
+    }
+
+    if (announcementsQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || soundsQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || guildQuery.error?.data?.code === "PRECONDITION_FAILED"
+        || guildMembersQuery.error?.data?.code === "PRECONDITION_FAILED"
+    ) {
+        router.push("/")
     }
 
     if (sessionData && !sessionData.user) {

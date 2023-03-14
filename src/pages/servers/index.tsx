@@ -7,6 +7,7 @@ import { LoadingIcon } from "../../components/form";
 import NavHeader from "../../components/NavHeader";
 import { inviteLink, pageClasses } from "../../components/shared";
 import { trpc } from "../../utils/trpc";
+import Image from "next/image";
 
 const ServersPage: NextPage = () => {
     const guilds = trpc.discord.getGuilds.useQuery(undefined, { staleTime: 1000 * 10 })
@@ -44,8 +45,20 @@ const ServersPage: NextPage = () => {
             {guilds.data && guilds.data.guilds.size > 0 &&
                 <div className="flex flex-col w-full gap-6">
                     {Array.from(guilds.data.guilds.values()).map(guild => (
-                        <Link key={guild.id} href={"/servers/" + guild.id} className="w-full rounded bg-gray-500/40 flex items-center justify-between p-4">
-                            <p className="text-xl">{guild.name}</p>
+                        <Link key={guild.id} href={"/servers/" + guild.id} className="w-full rounded bg-gray-500/40 flex items-center justify-between p-4 group">
+                            <div className="flex gap-2">
+                                {guild.icon &&
+                                    <Image
+                                        src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.${guild.icon?.startsWith("a_") ? "gif" : "webp"}?size=28`}
+                                        alt="Guild Icon"
+                                        width={28}
+                                        height={28}
+                                        className="mr-2 aspect-square rounded-3xl group-hover:rounded-md transition-all"
+                                    />
+                                }
+
+                                <p className="text-xl whitespace-nowrap truncate">{guild.name}</p>
+                            </div>
                             <ChevronRightIcon className="w-7 h-7" />
                         </Link>
                     ))}

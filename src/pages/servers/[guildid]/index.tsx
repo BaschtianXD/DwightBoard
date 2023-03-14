@@ -7,6 +7,7 @@ import { LoadingIcon } from "../../../components/form";
 import NavHeader from "../../../components/NavHeader";
 import { pageClasses } from "../../../components/shared";
 import { trpc } from "../../../utils/trpc";
+import Image from "next/image";
 
 const GuildConfigPage: NextPage = () => {
     const router = useRouter()
@@ -37,7 +38,20 @@ const GuildConfigPage: NextPage = () => {
             {/* PAGE HEADER */}
             <div className="flex flex-row flex-wrap w-full justify-between gap-2">
                 {guildQuery.data?.guild.name ?
-                    <p className="font-bold text-4xl">{guildQuery.data?.guild.name}</p>
+                    <div className="flex">
+                        {guildQuery.data.guild.icon &&
+                            <Image
+                                src={`https://cdn.discordapp.com/icons/${guildQuery.data.guild.id}/${guildQuery.data.guild.icon}.${guildQuery.data.guild.icon?.startsWith("a_") ? "gif" : "webp"}?size=40`}
+                                alt="Guild Icon"
+                                width={40}
+                                height={40}
+                                className="mr-2 aspect-square h-10 rounded-lg transition-all"
+                            />
+                        }
+
+                        <p className="font-bold text-4xl">{guildQuery.data?.guild.name}</p>
+                    </div>
+
                     :
                     <div className="h-10 w-40 bg-gray-500/50 animate-pulse rounded" />
                 }
